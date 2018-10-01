@@ -4,8 +4,7 @@ def append_text(text_to_append, file_path):
 
 
 def extract_text(file_path):
-    # doesn't check the size of the file - be careful when opening
-    # really large files!
+    # doesn't check the size of the file - be careful when opening large files!
     with open(file_path, "rb") as fp:
         s = fp.read()
         position = s.rfind(b"\xff\xd9") + 2
