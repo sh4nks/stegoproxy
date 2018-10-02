@@ -1,498 +1,312 @@
-# -*- coding: utf-8 -*-
-import sys
 import os
 import socket
-import ssl
-import select
-import threading
-import gzip
-import zlib
-import time
-import json
-import re
-import urllib.parse as urlparse
-from http.client import HTTPConnection, HTTPSConnection
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
-from io import StringIO
-from subprocess import Popen, PIPE
-from html.parser import HTMLParser
+
+from http.server import HTTPServer
+from socketserver import ThreadingMixIn, ForkingMixIn
+
+from stego_proxy._compat import WIN
 
 
-def log(c, s):
-    print("\x1b[{}m{}\x1b[0m".format(c, s))
+LISTEN_QUEUE = 128
+can_open_by_fd = not WIN and hasattr(socket, "fromfd")
+can_fork = hasattr(os, "fork")
 
 
-def join_with_script_dir(path):
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+def _log(*args):
+    print(*args)
 
 
-class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-    address_family = socket.AF_INET
-    daemon_threads = True
+def select_address_family(host, port):
+    """Return ``AF_INET4``, ``AF_INET6``, or ``AF_UNIX`` depending on
+    the host and port."""
+    if host.startswith("unix://"):
+        return socket.AF_UNIX
+    elif ":" in host and hasattr(socket, "AF_INET6"):
+        return socket.AF_INET6
+    return socket.AF_INET
+
+
+def get_sockaddr(host, port, family):
+    """Return a fully qualified socket address that can be passed to
+    :func:`socket.bind`."""
+    if family == socket.AF_UNIX:
+        return host.split("://", 1)[1]
+    try:
+        res = socket.getaddrinfo(
+            host, port, family, socket.SOCK_STREAM, socket.SOL_TCP
+        )
+    except socket.gaierror:
+        return host, port
+    return res[0][4]
+
+
+class BaseWSGIServer(HTTPServer, object):
+    """Simple single-threaded, single-process WSGI server."""
+
+    multithread = False
+    multiprocess = False
+    request_queue_size = LISTEN_QUEUE
+
+    def __init__(self, host, port, handler, passthrough_errors=False, fd=None):
+        self.address_family = select_address_family(host, port)
+
+        if fd is not None:
+            real_sock = socket.fromfd(
+                fd, self.address_family, socket.SOCK_STREAM
+            )
+            port = 0
+
+        server_address = get_sockaddr(host, int(port), self.address_family)
+
+        # remove socket file if it already exists
+        if self.address_family == socket.AF_UNIX and os.path.exists(
+            server_address
+        ):
+            os.unlink(server_address)
+
+        HTTPServer.__init__(self, server_address, handler)
+
+        self.passthrough_errors = passthrough_errors
+        self.shutdown_signal = False
+        self.host = host
+        self.port = self.socket.getsockname()[1]
+
+        # Patch in the original socket.
+        if fd is not None:
+            self.socket.close()
+            self.socket = real_sock
+            self.server_address = self.socket.getsockname()
+
+    def log(self, type, message, *args):
+        _log(type, message, *args)
+
+    def serve_forever(self):
+        self.shutdown_signal = False
+        try:
+            HTTPServer.serve_forever(self)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.server_close()
 
     def handle_error(self, request, client_address):
-        # surpress socket/ssl related errors
-        cls, e = sys.exc_info()[:2]
-        if cls is socket.error or cls is ssl.SSLError:
-            pass
-        else:
-            return HTTPServer.handle_error(self, request, client_address)
+        if self.passthrough_errors:
+            raise
+        return HTTPServer.handle_error(self, request, client_address)
+
+    def get_request(self):
+        con, info = self.socket.accept()
+        return con, info
 
 
-class ProxyRequestHandler(BaseHTTPRequestHandler):
-    cakey = join_with_script_dir("ca.key")
-    cacert = join_with_script_dir("ca.crt")
-    certkey = join_with_script_dir("cert.key")
-    certdir = join_with_script_dir("certs/")
-    timeout = 5
-    lock = threading.Lock()
+class ThreadedWSGIServer(ThreadingMixIn, BaseWSGIServer):
 
-    def __init__(self, *args, **kwargs):
-        self.tls = threading.local()
-        self.tls.conns = {}
+    """A WSGI server that does threading."""
 
-        BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+    multithread = True
+    daemon_threads = True
 
-    def log_error(self, format, *args):
-        # surpress "Request timed out: timeout('timed out',)"
-        if isinstance(args[0], socket.timeout):
-            return
 
-        self.log_message(format, *args)
+class ForkingWSGIServer(ForkingMixIn, BaseWSGIServer):
 
-    def do_CONNECT(self):
-        if (
-            os.path.isfile(self.cakey)
-            and os.path.isfile(self.cacert)
-            and os.path.isfile(self.certkey)
-            and os.path.isdir(self.certdir)
-        ):
-            self.connect_intercept()
-        else:
-            self.connect_relay()
+    """A WSGI server that does forking."""
 
-    def connect_intercept(self):
-        hostname = self.path.split(":")[0]
-        certpath = "%s/%s.crt" % (self.certdir.rstrip("/"), hostname)
+    multiprocess = True
 
-        with self.lock:
-            if not os.path.isfile(certpath):
-                epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(
-                    [
-                        "openssl",
-                        "req",
-                        "-new",
-                        "-key",
-                        self.certkey,
-                        "-subj",
-                        "/CN=%s" % hostname,
-                    ],
-                    stdout=PIPE,
-                )
-                p2 = Popen(
-                    [
-                        "openssl",
-                        "x509",
-                        "-req",
-                        "-days",
-                        "3650",
-                        "-CA",
-                        self.cacert,
-                        "-CAkey",
-                        self.cakey,
-                        "-set_serial",
-                        epoch,
-                        "-out",
-                        certpath,
-                    ],
-                    stdin=p1.stdout,
-                    stderr=PIPE,
-                )
-                p2.communicate()
-
-        self.wfile.write(
-            "%s %d %s\r\n"
-            % (self.protocol_version, 200, "Connection Established")
+    def __init__(
+        self,
+        host,
+        port,
+        app,
+        processes=40,
+        handler=None,
+        passthrough_errors=False,
+        ssl_context=None,
+        fd=None,
+    ):
+        if not can_fork:
+            raise ValueError("Your platform does not support forking.")
+        BaseWSGIServer.__init__(
+            self, host, port, app, handler, passthrough_errors, ssl_context, fd
         )
-        self.end_headers()
-
-        self.connection = ssl.wrap_socket(
-            self.connection,
-            keyfile=self.certkey,
-            certfile=certpath,
-            server_side=True,
-        )
-        self.rfile = self.connection.makefile("rb", self.rbufsize)
-        self.wfile = self.connection.makefile("wb", self.wbufsize)
-
-        conntype = self.headers.get("Proxy-Connection", "")
-        if self.protocol_version == "HTTP/1.1" and conntype.lower() != "close":
-            self.close_connection = 0
-        else:
-            self.close_connection = 1
-
-    def connect_relay(self):
-        address = self.path.split(":", 1)
-        address[1] = int(address[1]) or 443
-        try:
-            s = socket.create_connection(address, timeout=self.timeout)
-        except Exception as e:
-            self.send_error(502)
-            return
-        self.send_response(200, "Connection Established")
-        self.end_headers()
-
-        conns = [self.connection, s]
-        self.close_connection = 0
-        while not self.close_connection:
-            rlist, wlist, xlist = select.select(conns, [], conns, self.timeout)
-            if xlist or not rlist:
-                break
-            for r in rlist:
-                other = conns[1] if r is conns[0] else conns[0]
-                data = r.recv(8192)
-                if not data:
-                    self.close_connection = 1
-                    break
-                other.sendall(data)
-
-    def do_GET(self):
-        if self.path == "http://proxy2.test/":
-            self.send_cacert()
-            return
-
-        req = self
-        content_length = int(req.headers.get("Content-Length", 0))
-        req_body = self.rfile.read(content_length) if content_length else None
-
-        if req.path[0] == "/":
-            if isinstance(self.connection, ssl.SSLSocket):
-                req.path = "https://%s%s" % (req.headers["Host"], req.path)
-            else:
-                req.path = "http://%s%s" % (req.headers["Host"], req.path)
-
-        req_body_modified = self.request_handler(req, req_body)
-        if req_body_modified is False:
-            self.send_error(403)
-            return
-        elif req_body_modified is not None:
-            req_body = req_body_modified
-            req.headers["Content-length"] = str(len(req_body))
-
-        u = urlparse.urlsplit(req.path)
-        scheme, netloc, path = (
-            u.scheme,
-            u.netloc,
-            (u.path + "?" + u.query if u.query else u.path),
-        )
-        assert scheme in ("http", "https")
-        if netloc:
-            req.headers["Host"] = netloc
-        setattr(req, "headers", self.filter_headers(req.headers))
-
-        try:
-            origin = (scheme, netloc)
-            if origin not in self.tls.conns:
-                if scheme == "https":
-                    self.tls.conns[origin] = HTTPSConnection(
-                        netloc, timeout=self.timeout
-                    )
-                else:
-                    self.tls.conns[origin] = HTTPConnection(
-                        netloc, timeout=self.timeout
-                    )
-            conn = self.tls.conns[origin]
-            conn.request(self.command, path, req_body, dict(req.headers))
-            res = conn.getresponse()
-
-            version_table = {10: "HTTP/1.0", 11: "HTTP/1.1"}
-            setattr(res, "headers", res.msg)
-            setattr(res, "response_version", version_table[res.version])
-
-            # support streaming
-            if (
-                "Content-Length" not in res.headers
-                and "no-store" in res.headers.get("Cache-Control", "")
-            ):
-                self.response_handler(req, req_body, res, "")
-                setattr(res, "headers", self.filter_headers(res.headers))
-                self.relay_streaming(res)
-                with self.lock:
-                    self.save_handler(req, req_body, res, "")
-                return
-
-            res_body = res.read()
-        except Exception as e:
-            if origin in self.tls.conns:
-                del self.tls.conns[origin]
-            self.send_error(502)
-            return
-
-        content_encoding = res.headers.get("Content-Encoding", "identity")
-        res_body_plain = self.decode_content_body(res_body, content_encoding)
-
-        res_body_modified = self.response_handler(
-            req, req_body, res, res_body_plain
-        )
-        if res_body_modified is False:
-            self.send_error(403)
-            return
-        elif res_body_modified is not None:
-            res_body_plain = res_body_modified
-            res_body = self.encode_content_body(
-                res_body_plain, content_encoding
-            )
-            res.headers["Content-Length"] = str(len(res_body))
-
-        setattr(res, "headers", self.filter_headers(res.headers))
-
-        self.wfile.write(
-            "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
-        )
-        for line in res.headers.headers:
-            self.wfile.write(line)
-        self.end_headers()
-        self.wfile.write(res_body)
-        self.wfile.flush()
-
-        with self.lock:
-            self.save_handler(req, req_body, res, res_body_plain)
-
-    def relay_streaming(self, res):
-        self.wfile.write(
-            "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
-        )
-        for line in res.headers.headers:
-            self.wfile.write(line)
-        self.end_headers()
-        try:
-            while True:
-                chunk = res.read(8192)
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-            self.wfile.flush()
-        except socket.error:
-            # connection closed by client
-            pass
-
-    do_HEAD = do_GET
-    do_POST = do_GET
-    do_PUT = do_GET
-    do_DELETE = do_GET
-    do_OPTIONS = do_GET
-
-    def filter_headers(self, headers):
-        # http://tools.ietf.org/html/rfc2616#section-13.5.1
-        hop_by_hop = (
-            "connection",
-            "keep-alive",
-            "proxy-authenticate",
-            "proxy-authorization",
-            "te",
-            "trailers",
-            "transfer-encoding",
-            "upgrade",
-        )
-        for k in hop_by_hop:
-            del headers[k]
-
-        # accept only supported encodings
-        if "Accept-Encoding" in headers:
-            ae = headers["Accept-Encoding"]
-            filtered_encodings = [
-                x
-                for x in re.split(r",\s*", ae)
-                if x in ("identity", "gzip", "x-gzip", "deflate")
-            ]
-            headers["Accept-Encoding"] = ", ".join(filtered_encodings)
-
-        return headers
-
-    def encode_content_body(self, text, encoding):
-        if encoding == "identity":
-            data = text
-        elif encoding in ("gzip", "x-gzip"):
-            io = StringIO()
-            with gzip.GzipFile(fileobj=io, mode="wb") as f:
-                f.write(text)
-            data = io.getvalue()
-        elif encoding == "deflate":
-            data = zlib.compress(text)
-        else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
-        return data
-
-    def decode_content_body(self, data, encoding):
-        if encoding == "identity":
-            text = data
-        elif encoding in ("gzip", "x-gzip"):
-            io = StringIO(data)
-            with gzip.GzipFile(fileobj=io) as f:
-                text = f.read()
-        elif encoding == "deflate":
-            try:
-                text = zlib.decompress(data)
-            except zlib.error:
-                text = zlib.decompress(data, -zlib.MAX_WBITS)
-        else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
-        return text
-
-    def send_cacert(self):
-        with open(self.cacert, "rb") as f:
-            data = f.read()
-
-        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, "OK"))
-        self.send_header("Content-Type", "application/x-x509-ca-cert")
-        self.send_header("Content-Length", len(data))
-        self.send_header("Connection", "close")
-        self.end_headers()
-        self.wfile.write(data)
-
-    def print_info(self, req, req_body, res, res_body):
-        def parse_qsl(s):
-            if type(s) == bytes:
-                return "\n".join(
-                    "%-20s %s" % (k, v)
-                    for k, v in urlparse.parse_qsl(s, keep_blank_values=True)
-                )
-            else:
-                return "\n".join(
-                    "%-20s %s" % (k, v)
-                    for k, v in urlparse.parse_qsl(
-                        s.decode("utf-8"), keep_blank_values=True
-                    )
-                )
-
-        req_header_text = "%s %s %s\n%s" % (
-            req.command,
-            req.path,
-            req.request_version,
-            req.headers,
-        )
-        res_header_text = "%s %d %s\n%s" % (
-            res.response_version,
-            res.status,
-            res.reason,
-            res.headers,
-        )
-
-        log(33, req_header_text)
-
-        u = urlparse.urlsplit(req.path)
-        if u.query:
-            query_text = parse_qsl(u.query)
-            log(32, "==== QUERY PARAMETERS ====\n%s\n" % query_text)
-
-        cookie = req.headers.get("Cookie", "")
-        if cookie:
-            cookie = parse_qsl(re.sub(r";\s*", "&", cookie))
-            log(32, "==== COOKIE ====\n%s\n" % cookie)
-
-        auth = req.headers.get("Authorization", "")
-        if auth.lower().startswith("basic"):
-            token = auth.split()[1].decode("base64")
-            log(31, "==== BASIC AUTH ====\n%s\n" % token)
-
-        if req_body is not None:
-            req_body_text = None
-            content_type = req.headers.get("Content-Type", "")
-
-            if content_type.startswith("application/x-www-form-urlencoded"):
-                req_body_text = parse_qsl(req_body)
-            elif content_type.startswith("application/json"):
-                try:
-                    json_obj = json.loads(req_body)
-                    json_str = json.dumps(json_obj, indent=2)
-                    if json_str.count("\n") < 50:
-                        req_body_text = json_str
-                    else:
-                        lines = json_str.splitlines()
-                        req_body_text = "%s\n(%d lines)" % (
-                            "\n".join(lines[:50]),
-                            len(lines),
-                        )
-                except ValueError:
-                    req_body_text = req_body
-            elif len(req_body) < 1024:
-                req_body_text = req_body
-
-            if req_body_text:
-                log(32, "==== REQUEST BODY ====\n%s\n" % req_body_text)
-
-        log(36, res_header_text)
-
-        cookies = res.headers.getheaders("Set-Cookie")
-        if cookies:
-            cookies = "\n".join(cookies)
-            log(31, "==== SET-COOKIE ====\n%s\n" % cookies)
-
-        if res_body is not None:
-            res_body_text = None
-            content_type = res.headers.get("Content-Type", "")
-
-            if content_type.startswith("application/json"):
-                try:
-                    json_obj = json.loads(res_body)
-                    json_str = json.dumps(json_obj, indent=2)
-                    if json_str.count("\n") < 50:
-                        res_body_text = json_str
-                    else:
-                        lines = json_str.splitlines()
-                        res_body_text = "%s\n(%d lines)" % (
-                            "\n".join(lines[:50]),
-                            len(lines),
-                        )
-                except ValueError:
-                    res_body_text = res_body
-            elif content_type.startswith("text/html"):
-                m = re.search(
-                    r"<title[^>]*>\s*([^<]+?)\s*</title>", res_body, re.I
-                )
-                if m:
-                    h = HTMLParser()
-                    log(
-                        32,
-                        "==== HTML TITLE ====\n%s\n"
-                        % h.unescape(m.group(1).decode("utf-8")),
-                    )
-            elif content_type.startswith("text/") and len(res_body) < 1024:
-                res_body_text = res_body
-
-            if res_body_text:
-                log(32, "==== RESPONSE BODY ====\n%s\n" % res_body_text)
-
-    def request_handler(self, req, req_body):
-        pass
-
-    def response_handler(self, req, req_body, res, res_body):
-        pass
-
-    def save_handler(self, req, req_body, res, res_body):
-        self.print_info(req, req_body, res, res_body)
+        self.max_children = processes
 
 
-def test(
-    HandlerClass=ProxyRequestHandler,
-    ServerClass=ThreadingHTTPServer,
-    protocol="HTTP/1.1",
+def make_server(
+    host=None,
+    port=None,
+    threaded=False,
+    processes=1,
+    request_handler=None,
+    passthrough_errors=False,
+    fd=None,
 ):
-    if sys.argv[1:]:
-        port = int(sys.argv[1])
+    """Create a new server instance that is either threaded, or forks
+    or just processes one request after another.
+    """
+    if threaded and processes > 1:
+        raise ValueError(
+            "cannot have a multithreaded and " "multi process server."
+        )
+    elif threaded:
+        return ThreadedWSGIServer(
+            host, port, request_handler, passthrough_errors, fd=fd
+        )
+    elif processes > 1:
+        return ForkingWSGIServer(
+            host, port, processes, request_handler, passthrough_errors, fd=fd
+        )
     else:
-        port = 8888
-    server_address = ("127.0.0.1", port)
+        return BaseWSGIServer(
+            host, port, request_handler, passthrough_errors, fd=fd
+        )
 
-    HandlerClass.protocol_version = protocol
-    httpd = ServerClass(server_address, HandlerClass)
 
-    sa = httpd.socket.getsockname()
-    print("Serving HTTP Proxy on", sa[0], "port", sa[1], "...")
-    httpd.serve_forever()
+def is_running_from_reloader():
+    """Checks if the application is running from within the Werkzeug
+    reloader subprocess.
+    .. versionadded:: 0.10
+    """
+    return os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+
+
+def run_simple(
+    hostname,
+    port,
+    request_handler,
+    use_reloader=False,
+    use_evalex=True,
+    extra_files=None,
+    reloader_interval=1,
+    reloader_type="auto",
+    threaded=False,
+    processes=1,
+    passthrough_errors=False,
+):
+    """Start a WSGI application. Optional features include a reloader,
+    multithreading and fork support.
+
+    :param hostname: The host to bind to, for example ``'localhost'``.
+        If the value is a path that starts with ``unix://`` it will bind
+        to a Unix socket instead of a TCP socket..
+    :param port: The port for the server.  eg: ``8080``
+    :param use_reloader: should the server automatically restart the python
+                         process if modules were changed?
+    :param use_evalex: should the exception evaluation feature be enabled?
+    :param extra_files: a list of files the reloader should watch
+                        additionally to the modules.  For example configuration
+                        files.
+    :param reloader_interval: the interval for the reloader in seconds.
+    :param reloader_type: the type of reloader to use.  The default is
+                          auto detection.  Valid values are ``'stat'`` and
+                          ``'watchdog'``. See :ref:`reloader` for more
+                          information.
+    :param threaded: should the process handle each request in a separate
+                     thread?
+    :param processes: if greater than 1 then handle each request in a new process
+                      up to this maximum number of concurrent processes.
+    :param request_handler: optional parameter that can be used to replace
+                            the default one.  You can use this to replace it
+                            with a different
+                            :class:`~BaseHTTPServer.BaseHTTPRequestHandler`
+                            subclass.
+    :param passthrough_errors: set this to `True` to disable the error catching.
+                               This means that the server will die on errors but
+                               it can be useful to hook debuggers in (pdb etc.)
+    """
+    if not isinstance(port, int):
+        raise TypeError("port must be an integer")
+
+    def log_startup(sock):
+        display_hostname = hostname not in ("", "*") and hostname or "localhost"
+        quit_msg = "(Press CTRL+C to quit)"
+        if sock.family is socket.AF_UNIX:
+            _log("info", " * Running on %s %s", display_hostname, quit_msg)
+        else:
+            if ":" in display_hostname:
+                display_hostname = "[%s]" % display_hostname
+            port = sock.getsockname()[1]
+            _log(
+                "info",
+                " * Running on http://%s:%d/ %s",
+                display_hostname,
+                port,
+                quit_msg,
+            )
+
+    def inner():
+        try:
+            fd = int(os.environ["WERKZEUG_SERVER_FD"])
+        except (LookupError, ValueError):
+            fd = None
+        srv = make_server(
+            hostname,
+            port,
+            threaded,
+            processes,
+            request_handler,
+            passthrough_errors,
+            fd=fd,
+        )
+        if fd is None:
+            log_startup(srv.socket)
+        srv.serve_forever()
+
+    if use_reloader:
+        # If we're not running already in the subprocess that is the
+        # reloader we want to open up a socket early to make sure the
+        # port is actually available.
+        if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+            if port == 0 and not can_open_by_fd:
+                raise ValueError(
+                    "Cannot bind to a random port with enabled "
+                    "reloader if the Python interpreter does "
+                    "not support socket opening by fd."
+                )
+
+            # Create and destroy a socket so that any exceptions are
+            # raised before we spawn a separate Python interpreter and
+            # lose this ability.
+            address_family = select_address_family(hostname, port)
+            server_address = get_sockaddr(hostname, port, address_family)
+            s = socket.socket(address_family, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(server_address)
+            if hasattr(s, "set_inheritable"):
+                s.set_inheritable(True)
+
+            # If we can open the socket by file descriptor, then we can just
+            # reuse this one and our socket will survive the restarts.
+            if can_open_by_fd:
+                os.environ["WERKZEUG_SERVER_FD"] = str(s.fileno())
+                s.listen(LISTEN_QUEUE)
+                log_startup(s)
+            else:
+                s.close()
+                if address_family is socket.AF_UNIX:
+                    _log("info", "Unlinking %s" % server_address)
+                    os.unlink(server_address)
+
+        # Do not use relative imports, otherwise "python -m werkzeug.serving"
+        # breaks.
+        from stego_proxy.reloader import run_with_reloader
+
+        run_with_reloader(inner, extra_files, reloader_interval, reloader_type)
+    else:
+        inner()
+
+
+def run_with_reloader(*args, **kwargs):
+    # People keep using undocumented APIs.  Do not use this function
+    # please, we do not guarantee that it continues working.
+    from stego_proxy.reloader import run_with_reloader
+
+    return run_with_reloader(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    test()
+    # test()
+    from stego_proxy.proxy import ProxyRequestHandler
+
+    run_simple(hostname="127.0.0.1", port=8888, request_handler=ProxyRequestHandler,
+               use_reloader=True)
