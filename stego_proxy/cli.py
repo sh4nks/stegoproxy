@@ -4,7 +4,8 @@
 import sys
 import click
 
-from .server import start_server
+from stego_proxy.server import run_server
+from stego_proxy.proxy import ProxyRequestHandler
 
 
 @click.group()
@@ -13,15 +14,34 @@ def main(args=None):
 
 
 @main.command()
-def server():
-    """A server"""
-    click.secho("Starting proxy server...")
-    start_server()
+@click.option(
+    "--host", "-h", default="127.0.0.1", help="Address to bind the server to."
+)
+@click.option(
+    "--port", "-p", default=8888, type=int, help="The port to listen no."
+)
+@click.option(
+    "--no-reloader", is_flag=True, default=False, help="Disable the reloader."
+)
+@click.option(
+    "--no-threading",
+    is_flag=True,
+    default=False,
+    help="Disable multithreading.",
+)
+def client(host, port, no_reloader, no_threading):
+    """Runs the client side proxy."""
+    run_server(
+        hostname=host,
+        port=port,
+        request_handler=ProxyRequestHandler,
+        use_reloader=no_reloader,
+    )
 
 
 @main.command()
-def client():
-    """A client"""
+def server():
+    """Runs the server side proxy."""
     click.secho("Stego Proxy Consumer")
 
 

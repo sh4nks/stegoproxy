@@ -5,11 +5,9 @@ import subprocess
 import threading
 from itertools import chain
 
-from stego_proxy._compat import PY2, iteritems, text_type
 
-
-def _log(*args):
-    print(*args)
+def _log(s):
+    print(s)
 
 
 def _iter_module_files():
@@ -22,10 +20,11 @@ def _iter_module_files():
     for module in list(sys.modules.values()):
         if module is None:
             continue
-        filename = getattr(module, '__file__', None)
+        filename = getattr(module, "__file__", None)
         if filename:
-            if os.path.isdir(filename) and \
-               os.path.exists(os.path.join(filename, "__init__.py")):
+            if os.path.isdir(filename) and os.path.exists(
+                os.path.join(filename, "__init__.py")
+            ):
                 filename = os.path.join(filename, "__init__.py")
 
             old = None
@@ -35,22 +34,25 @@ def _iter_module_files():
                 if filename == old:
                     break
             else:
-                if filename[-4:] in ('.pyc', '.pyo'):
+                if filename[-4:] in (".pyc", ".pyo"):
                     filename = filename[:-1]
                 yield filename
 
 
 def _find_observable_paths(extra_files=None):
     """Finds all paths that should be observed."""
-    rv = set(os.path.dirname(os.path.abspath(x))
-             if os.path.isfile(x) else os.path.abspath(x)
-             for x in sys.path)
+    rv = set(
+        os.path.dirname(os.path.abspath(x))
+        if os.path.isfile(x)
+        else os.path.abspath(x)
+        for x in sys.path
+    )
 
     for filename in extra_files or ():
         rv.add(os.path.dirname(os.path.abspath(filename)))
 
     for module in list(sys.modules.values()):
-        fn = getattr(module, '__file__', None)
+        fn = getattr(module, "__file__", None)
         if fn is None:
             continue
         fn = os.path.abspath(fn)
@@ -60,17 +62,9 @@ def _find_observable_paths(extra_files=None):
 
 
 def _get_args_for_reloading():
-    """Returns the executable. This contains a workaround for windows
-    if the executable is incorrectly reported to not have the .exe
-    extension which can cause bugs on reloading.
-    """
+    """Returns the executable."""
     rv = [sys.executable]
     py_script = sys.argv[0]
-    if os.name == 'nt' and not os.path.exists(py_script) and \
-       os.path.exists(py_script + '.exe'):
-        py_script += '.exe'
-    if os.path.splitext(rv[0])[1] == '.exe' and os.path.splitext(py_script)[1] == '.exe':
-        rv.pop(0)
     rv.append(py_script)
     rv.extend(sys.argv[1:])
     return rv
@@ -89,10 +83,11 @@ def _find_common_roots(paths):
     rv = set()
 
     def _walk(node, path):
-        for prefix, child in iteritems(node):
+        for prefix, child in node.items():
             _walk(child, path + (prefix,))
         if not node:
-            rv.add('/'.join(path))
+            rv.add("/".join(path))
+
     _walk(root, ())
     return rv
 
@@ -106,8 +101,7 @@ class ReloaderLoop(object):
     _sleep = staticmethod(time.sleep)
 
     def __init__(self, extra_files=None, interval=1):
-        self.extra_files = set(os.path.abspath(x)
-                               for x in extra_files or ())
+        self.extra_files = set(os.path.abspath(x) for x in extra_files or ())
         self.interval = interval
 
     def run(self):
@@ -118,26 +112,12 @@ class ReloaderLoop(object):
         but running the reloader thread.
         """
         while 1:
-            _log('info', ' * Restarting with %s' % self.name)
+            _log(" * Restarting with %s" % self.name)
             args = _get_args_for_reloading()
+            new_environ = os.environ.copy()
 
-            # a weird bug on windows. sometimes unicode strings end up in the
-            # environment and subprocess.call does not like this, encode them
-            # to latin1 and continue.
-            if os.name == 'nt' and PY2:
-                new_environ = {}
-                for key, value in iteritems(os.environ):
-                    if isinstance(key, text_type):
-                        key = key.encode('iso-8859-1')
-                    if isinstance(value, text_type):
-                        value = value.encode('iso-8859-1')
-                    new_environ[key] = value
-            else:
-                new_environ = os.environ.copy()
-
-            new_environ['WERKZEUG_RUN_MAIN'] = 'true'
-            exit_code = subprocess.call(args, env=new_environ,
-                                        close_fds=False)
+            new_environ["STEGOPROXY_RUN_MAIN"] = "true"
+            exit_code = subprocess.call(args, env=new_environ, close_fds=False)
             if exit_code != 3:
                 return exit_code
 
@@ -147,17 +127,16 @@ class ReloaderLoop(object):
 
     def log_reload(self, filename):
         filename = os.path.abspath(filename)
-        _log('info', ' * Detected change in %r, reloading' % filename)
+        _log(" * Detected change in %r, reloading" % filename)
 
 
 class StatReloaderLoop(ReloaderLoop):
-    name = 'stat'
+    name = "stat"
 
     def run(self):
         mtimes = {}
         while 1:
-            for filename in chain(_iter_module_files(),
-                                  self.extra_files):
+            for filename in chain(_iter_module_files(), self.extra_files):
                 try:
                     mtime = os.stat(filename).st_mtime
                 except OSError:
@@ -173,11 +152,11 @@ class StatReloaderLoop(ReloaderLoop):
 
 
 class WatchdogReloaderLoop(ReloaderLoop):
-
     def __init__(self, *args, **kwargs):
         ReloaderLoop.__init__(self, *args, **kwargs)
         from watchdog.observers import Observer
         from watchdog.events import FileSystemEventHandler
+
         self.observable_paths = set()
 
         def _check_modification(filename):
@@ -185,11 +164,10 @@ class WatchdogReloaderLoop(ReloaderLoop):
                 self.trigger_reload(filename)
             dirname = os.path.dirname(filename)
             if dirname.startswith(tuple(self.observable_paths)):
-                if filename.endswith(('.pyc', '.pyo', '.py')):
+                if filename.endswith((".pyc", ".pyo", ".py")):
                     self.trigger_reload(filename)
 
         class _CustomHandler(FileSystemEventHandler):
-
             def on_created(self, event):
                 _check_modification(event.src_path)
 
@@ -204,9 +182,9 @@ class WatchdogReloaderLoop(ReloaderLoop):
                 _check_modification(event.src_path)
 
         reloader_name = Observer.__name__.lower()
-        if reloader_name.endswith('observer'):
+        if reloader_name.endswith("observer"):
             reloader_name = reloader_name[:-8]
-        reloader_name += ' reloader'
+        reloader_name += " reloader"
 
         self.name = reloader_name
 
@@ -234,11 +212,12 @@ class WatchdogReloaderLoop(ReloaderLoop):
                     if path not in watches:
                         try:
                             watches[path] = observer.schedule(
-                                self.event_handler, path, recursive=True)
+                                self.event_handler, path, recursive=True
+                            )
                         except OSError:
-                            # Clear this path from list of watches We don't want
-                            # the same error message showing again in the next
-                            # iteration.
+                            # Clear this path from list of watches We don't
+                            # want the same error message showing again in the
+                            # next iteration.
                             watches[path] = None
                     to_delete.discard(path)
                 for path in to_delete:
@@ -254,17 +233,14 @@ class WatchdogReloaderLoop(ReloaderLoop):
         sys.exit(3)
 
 
-reloader_loops = {
-    'stat': StatReloaderLoop,
-    'watchdog': WatchdogReloaderLoop,
-}
+reloader_loops = {"stat": StatReloaderLoop, "watchdog": WatchdogReloaderLoop}
 
 try:
-    __import__('watchdog.observers')
+    __import__("watchdog.observers")
 except ImportError:
-    reloader_loops['auto'] = reloader_loops['stat']
+    reloader_loops["auto"] = reloader_loops["stat"]
 else:
-    reloader_loops['auto'] = reloader_loops['watchdog']
+    reloader_loops["auto"] = reloader_loops["watchdog"]
 
 
 def ensure_echo_on():
@@ -283,14 +259,16 @@ def ensure_echo_on():
         termios.tcsetattr(sys.stdin, termios.TCSANOW, attributes)
 
 
-def run_with_reloader(main_func, extra_files=None, interval=1,
-                      reloader_type='auto'):
+def run_with_reloader(
+    main_func, extra_files=None, interval=1, reloader_type="auto"
+):
     """Run the given function in an independent python interpreter."""
     import signal
+
     reloader = reloader_loops[reloader_type](extra_files, interval)
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     try:
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        if os.environ.get("STEGOPROXY_RUN_MAIN") == "true":
             ensure_echo_on()
             t = threading.Thread(target=main_func, args=())
             t.setDaemon(True)
