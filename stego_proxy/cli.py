@@ -4,7 +4,7 @@
 import sys
 import click
 
-from stego_proxy.server import run_server
+from stego_proxy.proxyserver import run_server
 from stego_proxy.proxy import ProxyRequestHandler
 
 
@@ -21,12 +21,12 @@ def main(args=None):
     "--port", "-p", default=8888, type=int, help="The port to listen no."
 )
 @click.option(
-    "--no-reloader", is_flag=True, default=False, help="Disable the reloader."
+    "--no-reloader", is_flag=True, default=True, help="Disable the reloader."
 )
 @click.option(
     "--no-threading",
     is_flag=True,
-    default=False,
+    default=True,
     help="Disable multithreading.",
 )
 def client(host, port, no_reloader, no_threading):
@@ -36,6 +36,7 @@ def client(host, port, no_reloader, no_threading):
         port=port,
         request_handler=ProxyRequestHandler,
         use_reloader=no_reloader,
+        threaded=no_threading
     )
 
 

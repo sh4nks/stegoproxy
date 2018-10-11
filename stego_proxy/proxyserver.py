@@ -34,7 +34,6 @@ def get_sockaddr(host, port, family):
 
 class BaseHTTPServer(HTTPServer, object):
     """Simple single-threaded, single-process HTTP server."""
-
     multithread = False
     multiprocess = False
     request_queue_size = LISTEN_QUEUE
@@ -72,14 +71,14 @@ class BaseHTTPServer(HTTPServer, object):
         return con, info
 
 
-class ThreadedWSGIServer(ThreadingMixIn, BaseHTTPServer):
+class ThreadedHTTPServer(ThreadingMixIn, BaseHTTPServer):
     """A WSGI server that does threading."""
 
     multithread = True
     daemon_threads = True
 
 
-class ForkingWSGIServer(ForkingMixIn, BaseHTTPServer):
+class ForkingHTTPServer(ForkingMixIn, BaseHTTPServer):
     """A WSGI server that does forking."""
 
     multiprocess = True
@@ -109,11 +108,11 @@ def make_server(
             "cannot have a multithreaded and " "multi process server."
         )
     elif threaded:
-        return ThreadedWSGIServer(
+        return ThreadedHTTPServer(
             host, port, request_handler, passthrough_errors
         )
     elif processes > 1:
-        return ForkingWSGIServer(
+        return ForkingHTTPServer(
             host, port, processes, request_handler, passthrough_errors
         )
     else:
