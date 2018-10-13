@@ -2,7 +2,7 @@
 
 ## Development Lead
 
-* Peter Justin <peter.justin@edu.fh-joanneum.at>
+* Peter Justin <<peter.justin@edu.fh-joanneum.at>>
 
 ## Contributors
 
