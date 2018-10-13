@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-"""The setup script."""
-
 from setuptools import setup, find_packages
 
-with open("README.rst") as readme_file:
+with open("README.md") as readme_file:
     readme = readme_file.read()
 
-with open("HISTORY.rst") as history_file:
+with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
-requirements = ["Click>=6.0"]
+requirements = ["Click>=6.0", "colorlog>=3.1.0"]
 
 setup_requirements = ["pytest-runner"]
 
@@ -34,10 +31,11 @@ setup(
     description="A HTTP/S proxy that uses steganographic algorithms.",
     entry_points={"console_scripts": ["stego_proxy=stego_proxy.cli:main"]},
     install_requires=requirements,
-    license="GNU General Public License v3",
+    license="BSD",
     long_description=readme + "\n\n" + history,
+    long_description_content_type="text/markdown",
     include_package_data=True,
-    keywords="stego_proxy",
+    keywords="stego proxy",
     name="stego_proxy",
     packages=find_packages(include=["stego_proxy"]),
     setup_requires=setup_requirements,

@@ -1,36 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.stegoserver
+    stego_proxy.stegoclient
     ~~~~~~~~~~~~~~~~~~~~~~~
 
-    This module contains the stego server listens for connections
-    from the client.
+    This module contains the client that establishes the connection
+    to the stegoserver.
 
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, urlunparse, urlsplit, parse_qsl, ParseResult
-from http.client import HTTPResponse
-import ssl
-import socket
-import select
-import logging
 import datetime
 import json
+import logging
 import re
+import select
 from html.parser import HTMLParser
+from http.client import HTTPResponse
+from http.server import BaseHTTPRequestHandler
+from urllib.parse import ParseResult, parse_qsl, urlparse, urlsplit, urlunparse
+
+from stego_proxy import decoder, encoder
+from stego_proxy.connection import Client, Server
+from stego_proxy.exceptions import UnsupportedSchemeException
 from stego_proxy.utils import to_bytes
-from stego_proxy import decoder
-from stego_proxy import encoder
 
-
-CRLF = b"\r\n"
 log = logging.getLogger(__name__)
-
-
-class UnsupportedSchemeException(Exception):
-    pass
+CRLF = b"\r\n"
 
 
 class ProxyHandler(BaseHTTPRequestHandler):

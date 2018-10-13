@@ -1,13 +1,22 @@
+"""
+    stego_proxy.reloader
+    ~~~~~~~~~~~~~~~~~~~~
+
+    This module has been taken from werkzeug's `_reloader.py` module
+    and adapted for our own needs.
+
+    Werkzeug is released under the BSD License.
+"""
 import os
 import sys
 import time
 import subprocess
 import threading
+import logging
 from itertools import chain
 
 
-def _log(s):
-    print(s)
+log = logging.getLogger(__name__)
 
 
 def _iter_module_files():
@@ -112,7 +121,7 @@ class ReloaderLoop(object):
         but running the reloader thread.
         """
         while 1:
-            _log(" * Restarting with %s" % self.name)
+            log.info("Restarting with %s" % self.name)
             args = _get_args_for_reloading()
             new_environ = os.environ.copy()
 
@@ -127,7 +136,7 @@ class ReloaderLoop(object):
 
     def log_reload(self, filename):
         filename = os.path.abspath(filename)
-        _log(" * Detected change in %r, reloading" % filename)
+        log.info("Detected change in %r, reloading" % filename)
 
 
 class StatReloaderLoop(ReloaderLoop):

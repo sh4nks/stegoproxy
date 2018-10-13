@@ -6,13 +6,17 @@ LOG_DEFAULT_CONF = {
     "formatters": {
         "standard": {
             "format": "%(asctime)-10s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S"
-        }
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "colored": {
+            "()": "colorlog.ColoredFormatter",
+            "format": "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",  # noqa
+        },
     },
     "handlers": {
         "console": {
             "level": "DEBUG",
-            "formatter": "standard",
+            "formatter": "colored",
             "class": "logging.StreamHandler",
         },
         "stego_proxy": {
