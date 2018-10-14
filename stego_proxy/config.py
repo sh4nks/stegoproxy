@@ -37,3 +37,12 @@ LOG_DEFAULT_CONF = {
         }
     },
 }
+
+
+class Config(object):
+    LOGGING_CONFIG = LOG_DEFAULT_CONF
+    ALGORITHMS = ["base64", "plain"]
+    REMOTE_ADDR = None
+
+
+cfg = Config()

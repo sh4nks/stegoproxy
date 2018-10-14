@@ -13,3 +13,7 @@
 
 class UnsupportedSchemeException(Exception):
     pass
+
+
+class UnsupportedStegoAlgorithm(Exception):
+    pass
