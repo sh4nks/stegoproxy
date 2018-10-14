@@ -1,4 +1,4 @@
-# Steganography Tunnel
+# Steganography Proxy
 
 A HTTP/S proxy that uses steganographic algorithms.
 
@@ -7,15 +7,21 @@ A HTTP/S proxy that uses steganographic algorithms.
 
 Install from PyPI:
 ```bash
-pip install stegotunnel
+pip install stegoproxy
 ```
 
-Start stegotunnel on server:
+Start stegoproxy on server:
 ```bash
-stegotunnel server...
+stegoproxy server
 ```
 
-Start the stegotunnel client on i.e. your compputer
+Start the stegoproxy client on i.e. your compputer
 ```bash
-stegotunnel client...
+stegoproxy client
+```
+
+stegoproxy also ships with a very barebones flask app to test it's
+functionality:
+```bash
+stegoproxy demoapp
 ```
