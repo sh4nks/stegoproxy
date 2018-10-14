@@ -29,7 +29,6 @@ CRLF = b"\r\n"
 class ClientProxyHandler(BaseProxyHandler):
     def __init__(self, request, client_address, server):
         BaseProxyHandler.__init__(self, request, client_address, server)
-        self.stego_medium = None
 
     def _connect_to_host(self):
         self.hostname = cfg.REMOTE_ADDR[0]
@@ -41,100 +40,66 @@ class ClientProxyHandler(BaseProxyHandler):
         self.server.connect()
         self.client = Client(self.connection)  # reusing the connection here
 
-    def _build_request(self, cmd, path, version, headers, body):
-        request = (
-            # Add "GET / HTTP/1.1..." to the request"
-            b" ".join([to_bytes(cmd), to_bytes(path), to_bytes(version)])
-            + CRLF
-            # Add Headers to the request (Host:..., User-Agent:...)
-            + headers.as_bytes()[:-1]
-            + CRLF
-            + body
-        )
-        return request
-
-    def do_CONNECT(self):
-        self.is_connect = True
-        try:
-            # Connect to destination first
-            self._connect_to_host()
-
-            # If successful, let's do this!
-            self.send_response(200, "Connection Established")
-            self.end_headers()
-        except Exception as e:
-            self.send_error(500, str(e))
-            return
-
-        log.info(f"{self.command} {self.path}")
-
-        self._process_connect()
-
     def do_COMMAND(self):
-        # log.info(f"{self.command} {self.path}")
         try:
             # Connect to destination
             self._connect_to_host()
         except Exception as e:
-            # raise e
             self.send_error(500, str(e))
             return
 
         # Build request for destination
         # [Browser] <--> StegoClient <--> StegoServer <--> [Website]
-        content_length = int(self.headers.get("Content-Length", 0))
-        request_body = self.rfile.read(content_length)
         req_to_dest = self._build_request(
-            self.command,
-            self.path,
-            self.request_version,
-            self.headers,
-            request_body,
+            to_bytes(self.command),
+            to_bytes(self.path),
+            to_bytes(self.request_version),
+            self.headers.as_bytes()[:-1],  # ends with 2 \n\n - remove 1
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
         )
 
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
-        self.stego_medium = StegoMedium(message=req_to_dest, algorithm="base64").embed()
+        stego_server = StegoMedium(message=req_to_dest).embed()
 
-        msg = Message()
-        msg.add_header("Host", "127.0.0.1:9999")
-        msg.add_header("Connection", "keep-alive")
-        msg.add_header("Content-Length", str(len(self.stego_medium.medium)))
+        header = Message()
+        header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
+        header.add_header("Connection", "keep-alive")
+        header.add_header("Content-Length", str(len(stego_server.medium)))
 
         req_to_server = self._build_request(
-            "POST", "/", "HTTP/1.1", msg, self.stego_medium.medium
+            to_bytes(cfg.HTTP_COMMAND),
+            to_bytes(cfg.HTTP_PATH),
+            to_bytes(cfg.HTTP_VERSION),
+            header.as_bytes()[:-1],
+            stego_server.medium
         )
         log.info(req_to_server)
-        # Send it down the pipe!
+
+        # Send the request to the stego server
         self.server.send(req_to_server)
 
-        # Parse response
+        # Parse the response from the stego server
+        # which contains the response from the browser
         h = HTTPResponse(self.server.conn)
         h.begin()
+
+        # Get rid of hop-by-hop headers
+        self.filter_headers(h.msg)
 
         # TODO: 1. Extract Stego Message from StegoServer Response
         #          and relay the message to the Browser
         #       2. Create new HTTP Message from extracted StegoMessage
 
-        # Get rid of hop-by-hop headers
-        self.filter_headers(h.msg)
-        # Time to relay the message across
-        # read response body
-        response_body = h.read()
-        res = (
-            # HTTP/1.1  OK
-            b" ".join(
-                [
-                    to_bytes(self.request_version),
-                    to_bytes(str(h.status)),
-                    to_bytes(h.reason),
-                ]
-            )
-            # Content-Type, Content-Length, Server...
-            + CRLF
-            + h.msg.as_bytes()
-            + CRLF
-            + response_body
+        #stego_client = StegoMedium(medium=h.read()).extract()
+
+        # Build response for browser
+        resp_to_browser = self._build_response(
+            to_bytes(self.request_version),
+            to_bytes(h.status),
+            to_bytes(h.reason),
+            h.msg.as_bytes(),
+            h.read()
         )
 
         # Close connection to the StegoServer
@@ -142,4 +107,4 @@ class ClientProxyHandler(BaseProxyHandler):
         self.server.close()
 
         # Relay the message to the browser
-        self.client.send(res)
+        self.client.send(resp_to_browser)

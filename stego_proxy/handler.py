@@ -9,6 +9,7 @@
     :license: All Rights Reserved, see LICENSE for more details.
 """
 import datetime
+import email
 import json
 import logging
 import re
@@ -20,7 +21,7 @@ from urllib.parse import ParseResult, parse_qsl, urlparse, urlsplit, urlunparse
 
 from stego_proxy.connection import Client, Server
 from stego_proxy.exceptions import UnsupportedSchemeException
-from stego_proxy.utils import to_bytes
+from stego_proxy.utils import to_bytes, to_unicode
 
 log = logging.getLogger(__name__)
 CRLF = b"\r\n"
@@ -169,6 +170,56 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
             self._process_wlist(ready_to_write)
             if self._process_rlist(ready_to_read) or in_error:
                 break
+
+    def _build_request(
+        self,
+        command: bytes,
+        path: bytes,
+        request_version: bytes,
+        headers: bytes,
+        body: bytes,
+    ) -> bytes:
+        request_line = b" ".join([command, path, request_version])
+        request = (
+            # Add "GET / HTTP/1.1..." to the request"
+            request_line
+            + CRLF
+            # Add Headers to the request (Host:..., User-Agent:...)
+            + headers
+            + CRLF
+            # Add Request Body
+            + body
+        )
+        return request
+
+    def _build_response(
+        self,
+        request_version: bytes,
+        status: bytes,
+        reason: bytes,
+        headers: bytes,
+        body: bytes,
+    ) -> bytes:
+
+        status_line = b" ".join([request_version, status, reason])
+        res = (
+            # HTTP/1.1 200 OK
+            status_line
+            # Content-Type, Content-Length, Server...
+            + CRLF
+            + headers
+            + CRLF
+            # Add Response Body
+            + body
+        )
+        return res
+
+    def _get_hostaddr_from_headers(self, headers):
+        # first line ([0]) is request line
+        raw_headers = to_unicode(headers).split("\r\n")[1]
+        headers = email.message_from_string(raw_headers)
+        host, port = headers["host"].split(":")
+        return host, port
 
     def do_CONNECT(self):
         self.is_connect = True
@@ -383,7 +434,7 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
                     h = HTMLParser()
                     log.debug(
                         "==== HTML TITLE ====\n%s"
-                        % h.unescape(m.group(1).decode("utf-8")),
+                        % h.unescape(m.group(1).decode("utf-8"))
                     )
             elif content_type.startswith("text/") and len(res_body) < 1024:
                 res_body_text = res_body

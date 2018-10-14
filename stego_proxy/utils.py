@@ -15,10 +15,12 @@ import sys
 def to_bytes(x, charset=sys.getdefaultencoding(), errors="strict"):
     if x is None:
         return None
-    if isinstance(x, (bytes, bytearray, memoryview, int)):  # noqa
+    if isinstance(x, (bytes, bytearray, memoryview)):  # noqa
         return bytes(x)
     if isinstance(x, str):
         return x.encode(charset, errors)
+    if isinstance(x, int):
+        return str(x).encode(charset, errors)
     raise TypeError("Expected bytes")
 
 

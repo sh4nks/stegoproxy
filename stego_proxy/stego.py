@@ -11,14 +11,18 @@
 """
 import base64
 import logging
+
+from stego_proxy.config import cfg
 from stego_proxy.exceptions import UnsupportedStegoAlgorithm
-from stego_proxy.utils import to_bytes
 
 
 log = logging.getLogger(__name__)
 
 
 class StegoAlgorithm(object):
+    _default_stego = {
+        "base64": {"in": base64.b64encode, "out": base64.b64decode}
+    }
 
     def __init__(self, algorithm):
         if algorithm not in self._default_stego:
@@ -49,12 +53,10 @@ class StegoMedium(StegoAlgorithm):
 
            stego-medium = frame + message [+ key]
     """
-    _default_stego = {
-        "plain": {"in": lambda x: x[::-1], "out": lambda x: x[::-1]},
-        "base64": {"in": base64.b64encode, "out": base64.b64decode},
-    }
 
-    def __init__(self, message=None, medium=None, frame=None, algorithm=None):
+    def __init__(
+        self, message=None, medium=None, frame=None, algorithm=None
+    ):
         """Constructs a stego medium.
 
         :param message: The message to hide or extract.
@@ -62,8 +64,9 @@ class StegoMedium(StegoAlgorithm):
         :param frame: The cover object where the message will be embedded in.
         :param algorithm: The algorithm to use for the embedding process.
         """
-        algo = algorithm if algorithm is not None else "plain"
-        super(StegoMedium, self).__init__(algo)
+        if cfg.ALGORITHM is None and algorithm is None:
+            cfg.ALGORITHM = "base64"
+        super(StegoMedium, self).__init__(cfg.ALGORITHM)
 
         self.message = message
         self.frame = frame
@@ -86,4 +89,4 @@ class StegoMedium(StegoAlgorithm):
         return self
 
     def __repr__(self):
-        return f"<StegoMessage: {self.message} > {self.medium}>"
+        return f"<StegoMedium: {self.message}>"

@@ -41,8 +41,10 @@ LOG_DEFAULT_CONF = {
 
 class Config(object):
     LOGGING_CONFIG = LOG_DEFAULT_CONF
-    ALGORITHMS = ["base64", "plain"]
+    ALGORITHM = None
     REMOTE_ADDR = None
-
+    HTTP_COMMAND = "POST"
+    HTTP_PATH = "/"
+    HTTP_VERSION = "HTTP/1.1"
 
 cfg = Config()

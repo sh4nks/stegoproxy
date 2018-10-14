@@ -17,6 +17,7 @@ from stego_proxy.config import cfg
 from stego_proxy.httpserver import run_server
 from stego_proxy.stegoclient import ClientProxyHandler
 from stego_proxy.stegoserver import ServerProxyHandler
+from stego_proxy.demoapp import app
 
 
 logging.config.dictConfig(cfg.LOGGING_CONFIG)
@@ -104,6 +105,8 @@ def server(host, no_reloader, no_threading, log_level):
     log.setLevel(LOG_LEVELS.get(log_level, "INFO"))
     host, port = host.split(":")
 
+    cfg.REMOTE_ADDR = (host, int(port))
+
     run_server(
         hostname=host,
         port=int(port),
@@ -111,6 +114,30 @@ def server(host, no_reloader, no_threading, log_level):
         use_reloader=no_reloader,
         threaded=no_threading,
     )
+
+
+@main.command()
+@click.option(
+    "--host",
+    "-h",
+    default="127.0.0.1:5000",
+    show_default=True,
+    help="Address to bind to\n",
+)
+@click.option(
+    "--use-https", is_flag=True, default=False, help="Use HTTPS instead of HTTP"
+)
+def demoapp(host, use_https):
+    host, port = host.split(":")
+    run_config = dict(host=host, port=int(port), debug=True)
+
+    if use_https:
+        run_config["ssl_context"] = (
+            "../stego.local.cert.pem",
+            "../stego.local.key.pem",
+        )
+
+    app.run(**run_config)
 
 
 if __name__ == "__main__":
