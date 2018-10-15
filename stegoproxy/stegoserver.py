@@ -10,15 +10,15 @@
     :license: All Rights Reserved, see LICENSE for more details.
 """
 import logging
+from email.message import Message
 from http.client import HTTPResponse
 from urllib.parse import ParseResult, urlparse, urlunparse
-from email.message import Message
 
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
 from stegoproxy.stego import StegoMedium
-from stegoproxy.utils import to_bytes, to_unicode
+from stegoproxy.utils import to_bytes
 
 CRLF = b"\r\n"
 log = logging.getLogger(__name__)
@@ -58,6 +58,7 @@ class ServerProxyHandler(BaseProxyHandler):
 
         # The request that contains the request to the website is located
         # inside the POST request body from the stegoclient
+        log.debug("Got stego-request from stegoclient")
         req_body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         stego_server = StegoMedium(medium=req_body).extract()
 
@@ -65,32 +66,33 @@ class ServerProxyHandler(BaseProxyHandler):
         host, port = self._get_hostaddr_from_headers(stego_server.message)
 
         # establish connection to the website
-        log.info(f"Connecting to: {host}:{port}")
+        log.info(f"Connecting to {host}:{port}")
         self.server = Server(host, port)
         self.server.connect()
 
         # Just relay the original request to the website
-        log.debug("Sending message:\n" + to_unicode(stego_server.message))
+        log.debug("Relaying extracted request to website")
         self.server.send(stego_server.message)
 
         # Parse response from website
         h = HTTPResponse(self.server.conn)
         h.begin()
-        log.debug("Got response:\n" + h.msg.as_string())
 
         # Get rid of hop-by-hop headers
         self.filter_headers(h.msg)
 
         # Build response from website
+        log.debug("Building response from website")
         resp_from_dest = self._build_response(
-                    to_bytes(self.request_version),
-                    to_bytes(h.status),
-                    to_bytes(h.reason),
-                    h.msg.as_bytes(),
-                    h.read()
+            to_bytes(self.request_version),
+            to_bytes(h.status),
+            to_bytes(h.reason),
+            h.msg.as_bytes(),
+            h.read(),
         )
 
         # Encapsulate response inside response to stego client
+        log.debug("Embedding response from website in covert medium")
         stego_client = StegoMedium(message=resp_from_dest).embed()
 
         header = Message()
@@ -103,7 +105,7 @@ class ServerProxyHandler(BaseProxyHandler):
             to_bytes(h.status),
             to_bytes(h.reason),
             header.as_bytes()[:-1],
-            stego_client.medium
+            stego_client.medium,
         )
 
         # Let's close off the remote end
@@ -111,4 +113,5 @@ class ServerProxyHandler(BaseProxyHandler):
         self.server.close()
 
         # Relay the message
+        log.debug("Relaying stego-response to stegoclient")
         self.client.send(resp_to_client)

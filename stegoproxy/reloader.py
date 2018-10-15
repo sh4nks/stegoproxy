@@ -7,14 +7,13 @@
 
     Werkzeug is released under the BSD License.
 """
-import os
-import sys
-import time
-import subprocess
-import threading
 import logging
+import os
+import subprocess
+import sys
+import threading
+import time
 from itertools import chain
-
 
 log = logging.getLogger(__name__)
 

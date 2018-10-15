@@ -10,17 +10,14 @@
     :license: All Rights Reserved, see LICENSE for more details.
 """
 import logging
-from http.client import HTTPResponse
-from urllib.parse import ParseResult, urlparse, urlunparse
 from email.message import Message
+from http.client import HTTPResponse
 
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
-from stegoproxy.exceptions import UnsupportedSchemeException
-from stegoproxy.utils import to_bytes
 from stegoproxy.handler import BaseProxyHandler
 from stegoproxy.stego import StegoMedium
-
+from stegoproxy.utils import to_bytes
 
 log = logging.getLogger(__name__)
 CRLF = b"\r\n"
@@ -35,7 +32,7 @@ class ClientProxyHandler(BaseProxyHandler):
         self.port = cfg.REMOTE_ADDR[1]
         self.remote_path = f"http://{self.hostname}:{self.port}/"
         # establish connection to the stegoserver
-        log.debug(f"Connecting to {self.hostname}:{self.port}")
+        log.info(f"Connecting to stegoserver on {self.hostname}:{self.port}")
         self.server = Server(self.hostname, int(self.port))
         self.server.connect()
         self.client = Client(self.connection)  # reusing the connection here
@@ -55,11 +52,12 @@ class ClientProxyHandler(BaseProxyHandler):
             to_bytes(self.path),
             to_bytes(self.request_version),
             self.headers.as_bytes()[:-1],  # ends with 2 \n\n - remove 1
-            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            self.rfile.read(int(self.headers.get("Content-Length", 0))),
         )
 
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
+        log.debug("Embedding request to destination in covert medium")
         stego_server = StegoMedium(message=req_to_dest).embed()
 
         header = Message()
@@ -72,11 +70,11 @@ class ClientProxyHandler(BaseProxyHandler):
             to_bytes(cfg.HTTP_PATH),
             to_bytes(cfg.HTTP_VERSION),
             header.as_bytes()[:-1],
-            stego_server.medium
+            stego_server.medium,
         )
-        log.info(req_to_server)
 
         # Send the request to the stego server
+        log.debug("Sending stego-request to stegoserver...")
         self.server.send(req_to_server)
 
         # Parse the response from the stego server

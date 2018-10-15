@@ -47,4 +47,5 @@ class Config(object):
     HTTP_PATH = "/"
     HTTP_VERSION = "HTTP/1.1"
 
+
 cfg = Config()

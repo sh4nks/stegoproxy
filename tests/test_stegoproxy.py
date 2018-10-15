@@ -4,11 +4,9 @@
 """Tests for `stegoproxy` package."""
 
 import pytest
-
 from click.testing import CliRunner
 
-from stegoproxy import stegoproxy
-from stegoproxy import cli
+from stegoproxy import cli, stegoproxy
 
 
 @pytest.fixture

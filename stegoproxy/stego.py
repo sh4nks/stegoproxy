@@ -15,7 +15,6 @@ import logging
 from stegoproxy.config import cfg
 from stegoproxy.exceptions import UnsupportedStegoAlgorithm
 
-
 log = logging.getLogger(__name__)
 
 
@@ -54,9 +53,7 @@ class StegoMedium(StegoAlgorithm):
            stego-medium = frame + message [+ key]
     """
 
-    def __init__(
-        self, message=None, medium=None, frame=None, algorithm=None
-    ):
+    def __init__(self, message=None, medium=None, frame=None, algorithm=None):
         """Constructs a stego medium.
 
         :param message: The message to hide or extract.

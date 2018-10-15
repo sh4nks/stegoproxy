@@ -12,12 +12,19 @@
 """
 import sys
 
-from flask import Flask, Response, request, stream_with_context
-
+from flask import Flask, Response, stream_with_context
 
 app = Flask(__name__)
 
-tpl = """<html><head><link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon"> <title>STEGO PROXY HTTPS</title></head><body>{body}</body></html>"""
+tpl = """\
+<html>
+<head>
+<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+<title>STEGO PROXY HTTPS</title>
+</head>
+<body>{body}</body>
+</html>
+"""
 
 
 @app.route("/")
@@ -39,15 +46,3 @@ def streaming():
             yield "Hello %s" % i
 
     return Response(stream_with_context(generate()))
-
-
-if __name__ == "__main__":
-    port = 5000
-    if len(sys.argv) > 1:
-        port = int(sys.argv[1])
-        app.run(
-            port=port,
-            ssl_context=("../stego.local.cert.pem", "../stego.local.key.pem"),
-            debug=True,
-        )
-    app.run(port=port, debug=True)

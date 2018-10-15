@@ -8,17 +8,17 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
-import sys
-import click
 import logging
 import logging.config
+import sys
+
+import click
 
 from stegoproxy.config import cfg
+from stegoproxy.demoapp import app
 from stegoproxy.httpserver import run_server
 from stegoproxy.stegoclient import ClientProxyHandler
 from stegoproxy.stegoserver import ServerProxyHandler
-from stegoproxy.demoapp import app
-
 
 logging.config.dictConfig(cfg.LOGGING_CONFIG)
 log = logging.getLogger("stegoproxy")

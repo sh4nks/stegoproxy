@@ -9,13 +9,11 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
+import logging
 import os
 import socket
-import logging
-
 from http.server import HTTPServer
-from socketserver import ThreadingMixIn, ForkingMixIn
-
+from socketserver import ForkingMixIn, ThreadingMixIn
 
 LISTEN_QUEUE = 128
 
@@ -45,6 +43,7 @@ def get_sockaddr(host, port, family):
 
 class BaseHTTPServer(HTTPServer, object):
     """Simple single-threaded, single-process HTTP server."""
+
     multithread = False
     multiprocess = False
     request_queue_size = LISTEN_QUEUE
@@ -175,7 +174,9 @@ def run_server(
         raise TypeError("port must be an integer")
 
     def log_startup(sock):
-        display_hostname = hostname not in ("", "*") and hostname or "localhost"  # noqa
+        display_hostname = (
+            hostname not in ("", "*") and hostname or "localhost"
+        )  # noqa
         quit_msg = "(Press CTRL+C to quit)"
         if sock.family is socket.AF_UNIX:
             log.info("Running on %s %s" % (display_hostname, quit_msg))
