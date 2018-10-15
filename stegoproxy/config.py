@@ -19,19 +19,19 @@ LOG_DEFAULT_CONF = {
             "formatter": "colored",
             "class": "logging.StreamHandler",
         },
-        "stego_proxy": {
+        "stegoproxy": {
             "level": "ERROR",
             "formatter": "standard",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": os.path.join("../", "stego_proxy.log"),
+            "filename": os.path.join("../", "stegoproxy.log"),
             "mode": "a",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 5,
         },
     },
     "loggers": {
-        "stego_proxy": {
-            "handlers": ["console", "stego_proxy"],
+        "stegoproxy": {
+            "handlers": ["console", "stegoproxy"],
             "level": "DEBUG",
             "propagate": False,
         }

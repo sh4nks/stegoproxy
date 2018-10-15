@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy
-    ~~~~~~~~~~~
+    stegoproxy
+    ~~~~~~~~~~
 
     The Steganography Proxy.
 

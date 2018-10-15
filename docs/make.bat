@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=stego_proxy
+set SPHINXPROJ=stegoproxy
 
 if "%1" == "" goto help
 

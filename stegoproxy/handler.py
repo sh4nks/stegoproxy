@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.handler
-    ~~~~~~~~~~~~~~~~~~~
+    stegoproxy.handler
+    ~~~~~~~~~~~~~~~~~~
 
     This module contains a basic HTTP Proxy Handler.
 
@@ -19,9 +19,9 @@ from http.client import HTTPResponse
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import ParseResult, parse_qsl, urlparse, urlsplit, urlunparse
 
-from stego_proxy.connection import Client, Server
-from stego_proxy.exceptions import UnsupportedSchemeException
-from stego_proxy.utils import to_bytes, to_unicode
+from stegoproxy.connection import Client, Server
+from stegoproxy.exceptions import UnsupportedSchemeException
+from stegoproxy.utils import to_bytes, to_unicode
 
 log = logging.getLogger(__name__)
 CRLF = b"\r\n"
@@ -136,7 +136,7 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
                     CRLF.join(
                         [
                             b"HTTP/1.1 502 Bad Gateway",
-                            b"Proxy-agent: stego_proxy.py v0.1",
+                            b"Proxy-agent: stegoproxy.py v0.1",
                             b"Content-Length: 11",
                             b"Connection: close",
                             CRLF,

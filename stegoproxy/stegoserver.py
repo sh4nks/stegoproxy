@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.stegoserver
-    ~~~~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.stegoserver
+    ~~~~~~~~~~~~~~~~~~~~~~
 
     This module contains the stego server listens for connections
     from the client.
@@ -14,11 +14,11 @@ from http.client import HTTPResponse
 from urllib.parse import ParseResult, urlparse, urlunparse
 from email.message import Message
 
-from stego_proxy.config import cfg
-from stego_proxy.connection import Client, Server
-from stego_proxy.handler import BaseProxyHandler
-from stego_proxy.stego import StegoMedium
-from stego_proxy.utils import to_bytes, to_unicode
+from stegoproxy.config import cfg
+from stegoproxy.connection import Client, Server
+from stegoproxy.handler import BaseProxyHandler
+from stegoproxy.stego import StegoMedium
+from stegoproxy.utils import to_bytes, to_unicode
 
 CRLF = b"\r\n"
 log = logging.getLogger(__name__)

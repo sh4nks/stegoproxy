@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.httpserver
-    ~~~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.httpserver
+    ~~~~~~~~~~~~~~~~~~~~~
 
     This module contains a basic HTTP Server.
     Some parts of this module are taken from Werkzeug.
@@ -220,7 +220,7 @@ def run_server(
 
         # Do not use relative imports, otherwise "python -m werkzeug.serving"
         # breaks.
-        from stego_proxy.reloader import run_with_reloader
+        from stegoproxy.reloader import run_with_reloader
 
         run_with_reloader(
             inner, interval=reloader_interval, reloader_type=reloader_type

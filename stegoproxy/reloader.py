@@ -1,6 +1,6 @@
 """
-    stego_proxy.reloader
-    ~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.reloader
+    ~~~~~~~~~~~~~~~~~~~
 
     This module has been taken from werkzeug's `_reloader.py` module
     and adapted for our own needs.

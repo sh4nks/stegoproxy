@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.connection
-    ~~~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.connection
+    ~~~~~~~~~~~~~~~~~~~~~
 
     This module contains classes that are shared
     between the client and the server.

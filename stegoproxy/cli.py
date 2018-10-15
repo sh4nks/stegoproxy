@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.cli
-    ~~~~~~~~~~~~~~~
+    stegoproxy.cli
+    ~~~~~~~~~~~~~~
 
     Console scripts for the stego proxy.
 
@@ -13,15 +13,15 @@ import click
 import logging
 import logging.config
 
-from stego_proxy.config import cfg
-from stego_proxy.httpserver import run_server
-from stego_proxy.stegoclient import ClientProxyHandler
-from stego_proxy.stegoserver import ServerProxyHandler
-from stego_proxy.demoapp import app
+from stegoproxy.config import cfg
+from stegoproxy.httpserver import run_server
+from stegoproxy.stegoclient import ClientProxyHandler
+from stegoproxy.stegoserver import ServerProxyHandler
+from stegoproxy.demoapp import app
 
 
 logging.config.dictConfig(cfg.LOGGING_CONFIG)
-log = logging.getLogger("stego_proxy")
+log = logging.getLogger("stegoproxy")
 LOG_LEVELS = {
     "INFO": logging.INFO,
     "DEBUG": logging.DEBUG,
@@ -33,7 +33,7 @@ LOG_LEVELS = {
 @click.group()
 @click.version_option()
 def main(args=None):
-    """Console script for stego_proxy."""
+    """Console script for stegoproxy."""
 
 
 @main.command()

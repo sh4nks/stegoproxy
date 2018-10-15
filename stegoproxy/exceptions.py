@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.connection
-    ~~~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.connection
+    ~~~~~~~~~~~~~~~~~~~~~
 
     This module contains the exceptions that are used by
     the stego proxy.

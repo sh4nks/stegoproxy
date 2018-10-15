@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.utils
-    ~~~~~~~~~~~~~~~~~
+    stegoproxy.utils
+    ~~~~~~~~~~~~~~~~
 
     This module contains some utilities that are used
     throughout the project.

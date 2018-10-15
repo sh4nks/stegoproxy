@@ -25,5 +25,5 @@ deploy:
     secure: PLEASE_REPLACE_ME
   on:
     tags: true
-    repo: sh4nks/stego_proxy
+    repo: sh4nks/stegoproxy
     python: 3.6

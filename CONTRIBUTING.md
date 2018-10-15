@@ -9,7 +9,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://github.com/sh4nks/stego_proxy/issues.
+Report bugs at https://github.com/sh4nks/stegoproxy/issues.
 
 If you are reporting a bug, please include:
 
@@ -35,7 +35,7 @@ articles, and such.
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/sh4nks/stego_proxy/issues.
+The best way to send feedback is to file an issue at https://github.com/sh4nks/stegoproxy/issues.
 
 If you are proposing a feature:
 
@@ -46,20 +46,20 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `stego_proxy` for local development.
+Ready to contribute? Here's how to set up `stegoproxy` for local development.
 
-1. Fork the `stego_proxy` repo on GitHub.
+1. Fork the `stegoproxy` repo on GitHub.
 2. Clone your fork locally:
 
     ```bash
-    $ git clone git@github.com:your_name_here/stego_proxy.git
+    $ git clone git@github.com:your_name_here/stegoproxy.git
     ```
 
 3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
 
     ```bash
-    $ mkvirtualenv stego_proxy
-    $ cd stego_proxy/
+    $ mkvirtualenv stegoproxy
+    $ cd stegoproxy/
     $ python setup.py develop
     ```
 
@@ -75,7 +75,7 @@ Ready to contribute? Here's how to set up `stego_proxy` for local development.
    tests, including testing other Python versions with tox:
 
     ```
-    $ flake8 stego_proxy tests
+    $ flake8 stegoproxy tests
     $ python setup.py test or py.test
     $ tox
     ```
@@ -102,7 +102,7 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
 3. The pull request should work for Python 2.7, 3.4, 3.5 and 3.6, and for PyPy. Check
-   https://travis-ci.org/sh4nks/stego_proxy/pull_requests
+   https://travis-ci.org/sh4nks/stegoproxy/pull_requests
    and make sure that the tests pass for all supported Python versions.
 
 
@@ -110,7 +110,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 To run a subset of tests:
 ```bash
-$ py.test tests.test_stego_proxy
+$ py.test tests.test_stegoproxy
 ```
 
 ## Deploying

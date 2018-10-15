@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.stegoclient
-    ~~~~~~~~~~~~~~~~~~~~~~~
+    stegoproxy.stegoclient
+    ~~~~~~~~~~~~~~~~~~~~~~
 
     This module contains the client that establishes the connection
     to the stegoserver.
@@ -14,12 +14,12 @@ from http.client import HTTPResponse
 from urllib.parse import ParseResult, urlparse, urlunparse
 from email.message import Message
 
-from stego_proxy.config import cfg
-from stego_proxy.connection import Client, Server
-from stego_proxy.exceptions import UnsupportedSchemeException
-from stego_proxy.utils import to_bytes
-from stego_proxy.handler import BaseProxyHandler
-from stego_proxy.stego import StegoMedium
+from stegoproxy.config import cfg
+from stegoproxy.connection import Client, Server
+from stegoproxy.exceptions import UnsupportedSchemeException
+from stegoproxy.utils import to_bytes
+from stegoproxy.handler import BaseProxyHandler
+from stegoproxy.stego import StegoMedium
 
 
 log = logging.getLogger(__name__)

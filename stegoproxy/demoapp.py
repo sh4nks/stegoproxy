@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.demoapp
-    ~~~~~~~~~~~~~~~~~~~
+    stegoproxy.demoapp
+    ~~~~~~~~~~~~~~~~~~
 
     This module contains a simple demo Flask app and
     is mostly used for testing the functionality of the

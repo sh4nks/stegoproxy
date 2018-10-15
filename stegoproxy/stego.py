@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-    stego_proxy.stego
-    ~~~~~~~~~~~~~~~~~
+    stegoproxy.stego
+    ~~~~~~~~~~~~~~~~
 
     This module contains the logic for embedding messages in stego mediums
     and extracting them again.
@@ -12,8 +12,8 @@
 import base64
 import logging
 
-from stego_proxy.config import cfg
-from stego_proxy.exceptions import UnsupportedStegoAlgorithm
+from stegoproxy.config import cfg
+from stegoproxy.exceptions import UnsupportedStegoAlgorithm
 
 
 log = logging.getLogger(__name__)
