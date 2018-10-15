@@ -90,21 +90,13 @@ class ClientProxyHandler(BaseProxyHandler):
         # TODO: 1. Extract Stego Message from StegoServer Response
         #          and relay the message to the Browser
         #       2. Create new HTTP Message from extracted StegoMessage
-
-        #stego_client = StegoMedium(medium=h.read()).extract()
-
-        # Build response for browser
-        resp_to_browser = self._build_response(
-            to_bytes(self.request_version),
-            to_bytes(h.status),
-            to_bytes(h.reason),
-            h.msg.as_bytes(),
-            h.read()
-        )
+        log.debug("Extracting stego-response from stegoserver")
+        stego_client = StegoMedium(medium=h.read()).extract()
 
         # Close connection to the StegoServer
         h.close()
         self.server.close()
 
         # Relay the message to the browser
-        self.client.send(resp_to_browser)
+        log.debug("Relaying response to browser")
+        self.client.send(stego_client.message)
