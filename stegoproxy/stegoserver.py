@@ -12,15 +12,15 @@
 import logging
 from email.message import Message
 from http.client import HTTPResponse
+from urllib.error import HTTPError
 from urllib.parse import ParseResult, urlparse, urlunparse
+from urllib.request import Request, urlopen
 
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
 from stegoproxy.stego import StegoMedium
-from stegoproxy.utils import to_bytes
 
-CRLF = b"\r\n"
 log = logging.getLogger(__name__)
 
 
@@ -48,7 +48,37 @@ class ServerProxyHandler(BaseProxyHandler):
             )
         self.client = Client(self.connection)  # reusing the connection here
 
-    def do_COMMAND(self):
+    def do_GET(self, body=True):
+        req = None
+        resp = None
+
+        url = "http://{}{}".format(cfg.REVERSE_HOSTNAME, self.path)
+        req = Request(url=url)
+
+        self.filter_headers(self.headers)
+
+        try:
+            resp = urlopen(req)
+        except HTTPError as e:
+            if e.getcode():
+                resp = e
+            else:
+                log.error(f"Error proxying: {str(e)}")
+                self.send_error(599, "error proxying: {}".format(str(e)))
+                return
+
+        resp_to_client = self._build_response(
+            resp.version,
+            resp.status,
+            resp.reason,
+            resp.info(),
+            resp.read(),
+        )
+
+        self.wfile.write(resp_to_client)
+        resp.close()
+
+    def do_POST(self):
         try:
             # Connect to destination
             self._connect_to_host()
@@ -84,10 +114,10 @@ class ServerProxyHandler(BaseProxyHandler):
         # Build response from website
         log.debug("Building response from website")
         resp_from_dest = self._build_response(
-            to_bytes(self.request_version),
-            to_bytes(h.status),
-            to_bytes(h.reason),
-            h.msg.as_bytes(),
+            self.request_version,
+            h.status,
+            h.reason,
+            h.msg,
             h.read(),
         )
 
@@ -101,10 +131,10 @@ class ServerProxyHandler(BaseProxyHandler):
         header.add_header("Content-Length", str(len(stego_client.medium)))
 
         resp_to_client = self._build_response(
-            to_bytes(cfg.HTTP_VERSION),
-            to_bytes(h.status),
-            to_bytes(h.reason),
-            header.as_bytes()[:-1],
+            cfg.STEGO_HTTP_VERSION,
+            h.status,
+            h.reason,
+            header,
             stego_client.medium,
         )
 
@@ -115,3 +145,11 @@ class ServerProxyHandler(BaseProxyHandler):
         # Relay the message
         log.debug("Relaying stego-response to stegoclient")
         self.client.send(resp_to_client)
+
+    def __getattr__(self, item):
+        if item.startswith("do_POST"):
+            return self.do_POST
+        elif item.startswith("do_GET"):
+            return self.do_GET
+        else:
+            return self.do_COMMAND

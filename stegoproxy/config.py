@@ -41,11 +41,13 @@ LOG_DEFAULT_CONF = {
 
 class Config(object):
     LOGGING_CONFIG = LOG_DEFAULT_CONF
-    ALGORITHM = None
-    REMOTE_ADDR = None
-    HTTP_COMMAND = "POST"
-    HTTP_PATH = "/"
-    HTTP_VERSION = "HTTP/1.1"
+    ALGORITHM = None    # If None: defaults to "base64"
+    REMOTE_ADDR = None  # If None: defaults to "localhost:9999"
+    STEGO_HTTP_COMMAND = "POST"
+    STEGO_HTTP_PATH = "/"
+    STEGO_HTTP_VERSION = "HTTP/1.1"
+    # Used to hide the stegoserver behind a real website
+    REVERSE_HOSTNAME = "peterjustin.me"
 
 
 cfg = Config()

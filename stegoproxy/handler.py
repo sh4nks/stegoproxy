@@ -15,7 +15,7 @@ import logging
 import re
 import select
 from html.parser import HTMLParser
-from http.client import HTTPResponse
+from http.client import HTTPMessage, HTTPResponse
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import ParseResult, parse_qsl, urlparse, urlsplit, urlunparse
 
@@ -25,6 +25,7 @@ from stegoproxy.utils import to_bytes, to_unicode
 
 log = logging.getLogger(__name__)
 CRLF = b"\r\n"
+HTTP_VERSIONS = {10: "HTTP/1.0", 11: "HTTP/1.1"}
 
 
 class BaseProxyHandler(BaseHTTPRequestHandler):
@@ -171,48 +172,76 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
             if self._process_rlist(ready_to_read) or in_error:
                 break
 
-    def _build_request(
-        self,
-        command: bytes,
-        path: bytes,
-        request_version: bytes,
-        headers: bytes,
-        body: bytes,
-    ) -> bytes:
-        request_line = b" ".join([command, path, request_version])
-        request = (
-            # Add "GET / HTTP/1.1..." to the request"
-            request_line
+    def _build_response_header(self, version, status, reason, headers):
+        """Builds a response header.
+
+        :param version: The HTTP Version. This can either an integer where
+                        10 defines HTTP/1.0 and 11 defines HTTP/1.1 or a
+                        string like "HTTP/1.1".
+        :param status: The HTTP Status Code like "200".
+        :param reason: The HTTP Status Code Reason like "OK" for a status code
+                        200.
+        :param headers: Either a string consisting of all headers or a
+                        HTTPMessage object.
+        """
+        if isinstance(headers, (HTTPMessage, email.message.Message)):
+            headers = headers.as_bytes()
+        if isinstance(version, int):
+            version = HTTP_VERSIONS[version]
+
+        header = (
+            # HTTP/1.1 200 OK
+            to_bytes("%s %s %s" % (version, status, reason))
             + CRLF
-            # Add Headers to the request (Host:..., User-Agent:...)
+            # Server, Date, Content-Type,...
             + headers
+        )
+
+        return header
+
+    def _build_request_header(self, command, path, version, headers):
+        """Builds a request header.
+
+        :param command: The HTTP Command like "GET"
+        :param path: The path to request like "/"
+        :param version: The HTTP Version. This can either an integer where
+                        10 defines HTTP/1.0 and 11 defines HTTP/1.1 or a
+                        string like "HTTP/1.1".
+        :param headers: Either a string consisting of all headers or a
+                        HTTPMessage object.
+        """
+        if isinstance(headers, (HTTPMessage, email.message.Message)):
+            headers = headers.as_bytes()
+        if isinstance(version, int):
+            version = HTTP_VERSIONS[version]
+
+        header = (
+            # GET / HTTP/1.1
+            to_bytes("%s %s %s" % (command, path, version))
             + CRLF
+            # Host, User-Agent, ...
+            + headers
+        )
+
+        return header
+
+    def _build_request(self, command, path, request_version, headers, body):
+        return (
+            # Headers
+            self._build_request_header(command, path, request_version, headers)
             # Add Request Body
             + body
         )
-        return request
 
-    def _build_response(
-        self,
-        request_version: bytes,
-        status: bytes,
-        reason: bytes,
-        headers: bytes,
-        body: bytes,
-    ) -> bytes:
-
-        status_line = b" ".join([request_version, status, reason])
-        res = (
-            # HTTP/1.1 200 OK
-            status_line
-            # Content-Type, Content-Length, Server...
-            + CRLF
-            + headers
-            + CRLF
-            # Add Response Body
+    def _build_response(self, request_version, status, reason, headers, body):
+        return (
+            # Headers
+            self._build_response_header(
+                request_version, status, reason, headers
+            )
+            # Body
             + body
         )
-        return res
 
     def _get_hostaddr_from_headers(self, headers):
         # first line ([0]) is request line

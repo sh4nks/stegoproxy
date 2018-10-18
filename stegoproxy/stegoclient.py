@@ -17,10 +17,8 @@ from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
 from stegoproxy.stego import StegoMedium
-from stegoproxy.utils import to_bytes
 
 log = logging.getLogger(__name__)
-CRLF = b"\r\n"
 
 
 class ClientProxyHandler(BaseProxyHandler):
@@ -48,10 +46,10 @@ class ClientProxyHandler(BaseProxyHandler):
         # Build request for destination
         # [Browser] <--> StegoClient <--> StegoServer <--> [Website]
         req_to_dest = self._build_request(
-            to_bytes(self.command),
-            to_bytes(self.path),
-            to_bytes(self.request_version),
-            self.headers.as_bytes()[:-1],  # ends with 2 \n\n - remove 1
+            self.command,
+            self.path,
+            self.request_version,
+            self.headers,
             self.rfile.read(int(self.headers.get("Content-Length", 0))),
         )
 
@@ -66,10 +64,10 @@ class ClientProxyHandler(BaseProxyHandler):
         header.add_header("Content-Length", str(len(stego_server.medium)))
 
         req_to_server = self._build_request(
-            to_bytes(cfg.HTTP_COMMAND),
-            to_bytes(cfg.HTTP_PATH),
-            to_bytes(cfg.HTTP_VERSION),
-            header.as_bytes()[:-1],
+            cfg.STEGO_HTTP_COMMAND,
+            cfg.STEGO_HTTP_PATH,
+            cfg.STEGO_HTTP_VERSION,
+            header,
             stego_server.medium,
         )
 
@@ -85,9 +83,7 @@ class ClientProxyHandler(BaseProxyHandler):
         # Get rid of hop-by-hop headers
         self.filter_headers(h.msg)
 
-        # TODO: 1. Extract Stego Message from StegoServer Response
-        #          and relay the message to the Browser
-        #       2. Create new HTTP Message from extracted StegoMessage
+        # Extract exact Response StegoServer's Stego-Response
         log.debug("Extracting stego-response from stegoserver")
         stego_client = StegoMedium(medium=h.read()).extract()
 
