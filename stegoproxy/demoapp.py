@@ -10,9 +10,9 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
-import sys
+import os
 
-from flask import Flask, Response, stream_with_context
+from flask import Flask, Response, send_from_directory, stream_with_context
 
 app = Flask(__name__)
 
@@ -46,3 +46,17 @@ def streaming():
             yield "Hello %s" % i
 
     return Response(stream_with_context(generate()))
+
+
+@app.route("/randomfile/<int:size>")
+@app.route("/randomfile")
+def random_file(size=None):
+    # base64 /dev/urandom | head -c 1000000000 > 1000file.txt
+    sizes = [2, 10, 100, 1000]
+    filename = "2file.txt"
+    if size in sizes:
+        filename = "%sfile.txt"
+
+    return send_from_directory(
+        os.path.dirname(app.root_path), filename, as_attachment=False
+    )

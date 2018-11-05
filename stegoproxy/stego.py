@@ -18,6 +18,19 @@ from stegoproxy.exceptions import UnsupportedStegoAlgorithm
 log = logging.getLogger(__name__)
 
 
+AVAILABLE_STEGOS = {
+    "base64": {"in": base64.b64encode, "out": base64.b64decode}
+}
+
+
+def embed(message):
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](message)
+
+
+def extract(medium):
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
+
+
 class StegoAlgorithm(object):
     _default_stego = {
         "base64": {"in": base64.b64encode, "out": base64.b64decode}

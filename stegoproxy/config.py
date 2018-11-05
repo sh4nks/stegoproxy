@@ -48,6 +48,8 @@ class Config(object):
     STEGO_HTTP_VERSION = "HTTP/1.1"
     # Used to hide the stegoserver behind a real website
     REVERSE_HOSTNAME = "peterjustin.me"
+    MAX_CONTENT_LENGTH = 1024  # in bytes
+    STEGO_ALGORITHM = "base64"
 
 
 cfg = Config()

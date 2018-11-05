@@ -11,14 +11,33 @@
 """
 import logging
 from email.message import Message
-from http.client import HTTPResponse
+from http.client import (_MAXLINE, _UNKNOWN, HTTPResponse, IncompleteRead,
+                         LineTooLong)
 
+from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
-from stegoproxy.stego import StegoMedium
 
 log = logging.getLogger(__name__)
+
+
+class StegoHTTPResponse(HTTPResponse):
+
+    def _readall_chunked(self):
+        assert self.chunked != _UNKNOWN
+        value = []
+        try:
+            while True:
+                chunk_left = self._get_chunk_left()
+                if chunk_left is None:
+                    break
+                chunk = self._safe_read(chunk_left)
+                value.append(stego.extract(chunk))
+                self.chunk_left = 0
+            return b''.join(value)
+        except IncompleteRead:
+            raise IncompleteRead(b''.join(value))
 
 
 class ClientProxyHandler(BaseProxyHandler):
@@ -56,19 +75,19 @@ class ClientProxyHandler(BaseProxyHandler):
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
         log.debug("Embedding request to destination in covert medium")
-        stego_server = StegoMedium(message=req_to_dest).embed()
+        stego_medium = stego.embed(message=req_to_dest)
 
         header = Message()
         header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
         header.add_header("Connection", "keep-alive")
-        header.add_header("Content-Length", str(len(stego_server.medium)))
+        header.add_header("Content-Length", str(len(stego_medium)))
 
         req_to_server = self._build_request(
             cfg.STEGO_HTTP_COMMAND,
             cfg.STEGO_HTTP_PATH,
             cfg.STEGO_HTTP_VERSION,
             header,
-            stego_server.medium,
+            stego_medium,
         )
 
         # Send the request to the stego server
@@ -77,7 +96,7 @@ class ClientProxyHandler(BaseProxyHandler):
 
         # Parse the response from the stego server
         # which contains the response from the browser
-        h = HTTPResponse(self.server.conn)
+        h = StegoHTTPResponse(self.server.conn)
         h.begin()
 
         # Get rid of hop-by-hop headers
@@ -85,7 +104,10 @@ class ClientProxyHandler(BaseProxyHandler):
 
         # Extract exact Response StegoServer's Stego-Response
         log.debug("Extracting stego-response from stegoserver")
-        stego_client = StegoMedium(medium=h.read()).extract()
+        if h.chunked:
+            stego_message = h.read()
+        else:
+            stego_message = stego.extract(h.read())
 
         # Close connection to the StegoServer
         h.close()
@@ -93,4 +115,4 @@ class ClientProxyHandler(BaseProxyHandler):
 
         # Relay the message to the browser
         log.debug("Relaying response to browser")
-        self.client.send(stego_client.message)
+        self.client.send(stego_message)

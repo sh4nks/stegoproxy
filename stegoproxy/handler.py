@@ -29,6 +29,8 @@ HTTP_VERSIONS = {10: "HTTP/1.0", 11: "HTTP/1.1"}
 
 
 class BaseProxyHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, request, client_address, server):
         self.is_connect = False
         self.start_time = self._now()
@@ -247,8 +249,8 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
         # first line ([0]) is request line
         raw_headers = to_unicode(headers).split("\r\n")[1]
         headers = email.message_from_string(raw_headers)
-        host, port = headers["host"].split(":")
-        return host, port
+        addr = headers["host"].split(":")
+        return (addr[0], 80) if len(addr) <= 1 else (addr[0], addr[1])
 
     def do_CONNECT(self):
         self.is_connect = True
