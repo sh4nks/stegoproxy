@@ -47,7 +47,7 @@ class ClientProxyHandler(BaseProxyHandler):
 
         # Build request for destination
         # [Browser] <--> StegoClient <--> StegoServer <--> [Website]
-        req_to_dest = self._build_request(
+        stego_req = self._build_stego_request(
             self.command,
             self.path,
             self.request_version,
@@ -57,7 +57,7 @@ class ClientProxyHandler(BaseProxyHandler):
 
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
-        log.debug("Embedding request to destination in covert medium")
+        log.debug("Embedding request to destination in stego-request")
         header = Message()
         header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
         header.add_header("Connection", "keep-alive")
@@ -65,11 +65,11 @@ class ClientProxyHandler(BaseProxyHandler):
         cover = self._get_cover_object()
         max_size = self._calc_max_size(cover)
 
-        if len(req_to_dest) > max_size:
+        if len(stego_req) > max_size:
             log.error("Message doesn't fit inside cover object.")
             raise MessageToLong("Message doesn't fit inside cover object.")
 
-        stego_medium = stego.embed(cover=cover, message=req_to_dest)
+        stego_medium = stego.embed(cover=cover, message=stego_req)
         header.add_header("Content-Length", str(len(stego_medium)))
 
         req_to_server = self._build_request(
@@ -105,5 +105,5 @@ class ClientProxyHandler(BaseProxyHandler):
         self.server.close()
 
         # Relay the message to the browser
-        log.debug("Relaying response to browser")
+        log.debug("Relaying extracted response to browser")
         self.client.send(stego_message)

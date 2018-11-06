@@ -209,11 +209,19 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
     def _split_into_chunks(self, seq, chunk_size):
         """Splits a sequence into evenly sized chunks."""
         for i in range(0, len(seq), chunk_size):
-            yield seq[i: i + chunk_size]
+            yield seq[i : i + chunk_size]
 
     def _calc_max_size(self, cover):
         w, h = cover.size
-        return w * h * 3  # each pixel consists of RGB  thus we need * 3
+        # each pixel consists of RGB  thus we need * 3
+        # / 8 because ONE character is represented by 8 bits
+        return int(w * h * 3 / 8) - 1024
+
+    def _encode(self, s):
+        return base64.b64encode(s)
+
+    def _decode(self, s):
+        return base64.b64decode(s)
 
     def _build_response_header(self, version, status, reason, headers):
         """Builds a response header.
@@ -286,8 +294,23 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
             + body
         )
 
+    def _build_stego_request(
+        self, command, path, request_version, headers, body
+    ):
+        return self._encode(
+            self._build_request(command, path, request_version, headers, body)
+        )
+
+    def _build_stego_response(
+        self, request_version, status, reason, headers, body
+    ):
+        return self._encode(
+            self._build_response(request_version, status, reason, headers, body)
+        )
+
     def _get_cover_object(self):
-        i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
+        #i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
+        i = cfg.COVER_OBJECTS[1]
         i_path = os.path.join(cfg.COVER_PATH, i)
         im = Image.open(i_path)
         return im

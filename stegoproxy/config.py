@@ -52,7 +52,7 @@ class Config(object):
     # Used to hide the stegoserver behind a real website
     REVERSE_HOSTNAME = "peterjustin.me"
 
-    MAX_CONTENT_LENGTH = 1024000  # in bytes
+    MAX_CONTENT_LENGTH = 500000  # in bytes
     # Available algorithms:
     #  - null: Doesn't hide the message (just encodes and it decodes it in b64)
     #  - stegano_lsb

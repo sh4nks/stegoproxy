@@ -63,8 +63,7 @@ def embed(cover, message):
     param cover: The cover object to embed the message in.
     param message: The message to be embedded.
     """
-    message = to_unicode(base64.b64encode(message))
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](cover, message)
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](cover, to_unicode(message))
 
 
 def extract(medium):
@@ -73,4 +72,6 @@ def extract(medium):
     :param medium: The medium where hidden message is located in.
     """
     message = AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
+    # all messages are base64 encoded
+    # TODO: Fix this ugly hack
     return base64.b64decode(message)

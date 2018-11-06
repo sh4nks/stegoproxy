@@ -116,7 +116,7 @@ class ServerProxyHandler(BaseProxyHandler):
 
         # Build response from website
         log.debug("Building response from website")
-        resp_from_dest = self._build_response(
+        stego_resp = self._build_stego_response(
             self.request_version, h.status, h.reason, h.msg, h.read()
         )
 
@@ -128,15 +128,15 @@ class ServerProxyHandler(BaseProxyHandler):
         max_size = self._calc_max_size(cover)
 
         if (
-            len(resp_from_dest) > cfg.MAX_CONTENT_LENGTH
-            or len(resp_from_dest) > max_size
+            len(stego_resp) > max_size or
+            len(stego_resp) > cfg.MAX_CONTENT_LENGTH
         ):
             if cfg.MAX_CONTENT_LENGTH > max_size:
                 cfg.MAX_CONTENT_LENGTH = max_size
 
             log.debug(
-                "Can't fit response into stego-response - using chunks of "
-                f"{cfg.MAX_CONTENT_LENGTH} bytes."
+                f"Can't fit response ({len(stego_resp)}) into stego-response - "
+                f"splitting into chunks of {cfg.MAX_CONTENT_LENGTH} bytes."
             )
 
             header.add_header("Transfer-Encoding", "chunked")
@@ -150,11 +150,11 @@ class ServerProxyHandler(BaseProxyHandler):
 
             chunk_count = 0
             for chunk in self._split_into_chunks(
-                resp_from_dest, cfg.MAX_CONTENT_LENGTH
+                stego_resp, cfg.MAX_CONTENT_LENGTH
             ):
                 # Send chunks
                 log.debug(f"Sending chunk with size: {len(chunk)}")
-                self._write_chunks(stego.embed(cover=cover, message=chunk))
+                self._write_chunks(stego.embed(cover=cover.copy(), message=chunk))
                 chunk_count += 1
 
             # send "end of chunks" trailer
@@ -162,9 +162,9 @@ class ServerProxyHandler(BaseProxyHandler):
             log.debug(f"{chunk_count} chunks sent.")
         else:
             # Encapsulate response inside response to stego client
-            log.debug("Embedding response from website in covert medium")
+            log.debug("Embedding response from website in stego-response")
 
-            stego_medium = stego.embed(cover=cover, message=resp_from_dest)
+            stego_medium = stego.embed(cover=cover.copy(), message=stego_resp)
             header.add_header("Content-Length", str(len(stego_medium)))
 
             resp_to_client = self._build_response(
@@ -175,6 +175,7 @@ class ServerProxyHandler(BaseProxyHandler):
             log.debug("Relaying stego-response to stegoclient")
             self.client.send(resp_to_client)
 
+        cover.close()
         # Let's close off the remote end
         h.close()
         self.server.close()
