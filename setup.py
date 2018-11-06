@@ -8,7 +8,7 @@ with open("README.md") as readme_file:
 with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
-requirements = ["Flask>=1.0", "Click>=7.0", "colorlog>=3.1.0"]
+requirements = ["Flask>=1.0", "Click>=7.0", "colorlog>=3.1.0", "Stegano>=0.8.5"]
 
 setup_requirements = ["pytest-runner"]
 

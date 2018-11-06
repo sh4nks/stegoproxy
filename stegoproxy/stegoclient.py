@@ -9,15 +9,16 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
+import io
 import logging
 from email.message import Message
-from http.client import (_MAXLINE, _UNKNOWN, HTTPResponse, IncompleteRead,
-                         LineTooLong)
+from http.client import _UNKNOWN, HTTPResponse, IncompleteRead
 
 from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
+from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class StegoHTTPResponse(HTTPResponse):
                 if chunk_left is None:
                     break
                 chunk = self._safe_read(chunk_left)
-                value.append(stego.extract(chunk))
+                value.append(stego.extract(io.BytesIO(chunk)))
                 self.chunk_left = 0
             return b''.join(value)
         except IncompleteRead:
@@ -107,7 +108,7 @@ class ClientProxyHandler(BaseProxyHandler):
         if h.chunked:
             stego_message = h.read()
         else:
-            stego_message = stego.extract(h.read())
+            stego_message = stego.extract(medium=io.BytesIO(h.read()))
 
         # Close connection to the StegoServer
         h.close()

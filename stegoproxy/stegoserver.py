@@ -9,6 +9,7 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
+import io
 import logging
 from email.message import Message
 from http.client import HTTPResponse
@@ -16,11 +17,12 @@ from urllib.error import HTTPError
 from urllib.parse import ParseResult, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
+from PIL import Image
+
 from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.handler import BaseProxyHandler
-from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +36,7 @@ class ServerProxyHandler(BaseProxyHandler):
 
     def _write_chunks(self, chunk):
         # no need to convert to "to_bytes" - chunk is already of type bytes
-        s = b"%X\r\n%s\r\n" % (len(chunk), chunk)
-        log.debug(f"Sending chunk with size: {len(chunk)}")
-        self.client.send(s)
+        self.client.send(b"%X\r\n%s\r\n" % (len(chunk), chunk))
 
     def to_chunks(self, seq, chunk_size):
         """Splits a sequence into evenly sized chunks."""
@@ -100,9 +100,12 @@ class ServerProxyHandler(BaseProxyHandler):
         # The request that contains the request to the website is located
         # inside the POST request body from the stegoclient
         log.debug("Got stego-request from stegoclient")
-        req_body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        # io stream that represents the stego medium (i.e. image)
+        req_body = io.BytesIO(
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        )
         stego_message = stego.extract(medium=req_body)
-
+        log.debug(stego_message)
         # Get Host and Port from the original request
         host, port = self._get_hostaddr_from_headers(stego_message)
 
@@ -133,10 +136,9 @@ class ServerProxyHandler(BaseProxyHandler):
         header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
         header.add_header("Connection", "keep-alive")
 
-        chunk_count = 0
         if len(resp_from_dest) > cfg.MAX_CONTENT_LENGTH:
             log.debug(
-                "Can't fit response into stego medium - using chunks of "
+                "Can't fit response into stego-response - using chunks of "
                 f"{cfg.MAX_CONTENT_LENGTH} bytes."
             )
 
@@ -146,11 +148,13 @@ class ServerProxyHandler(BaseProxyHandler):
             )
 
             # Send headers to client
-            log.debug("Sending chunked header to stegoclient")
+            log.debug("Sending chunked stego-response header to stegoclient")
             self.client.send(resp_to_client)
 
+            chunk_count = 0
             for chunk in self.to_chunks(resp_from_dest, cfg.MAX_CONTENT_LENGTH):
                 # Send chunks
+                log.debug(f"Sending chunk with size: {len(chunk)}")
                 self._write_chunks(stego.embed(message=chunk))
                 chunk_count += 1
 
@@ -163,6 +167,7 @@ class ServerProxyHandler(BaseProxyHandler):
 
             stego_medium = stego.embed(message=resp_from_dest)
             header.add_header("Content-Length", str(len(stego_medium)))
+            #header.add_header("Content-Type", self._get_mime_header(stego_medium))
 
             resp_to_client = self._build_response(
                 cfg.STEGO_HTTP_VERSION, h.status, h.reason, header, stego_medium

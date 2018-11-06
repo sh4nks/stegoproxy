@@ -6,97 +6,71 @@
     This module contains the logic for embedding messages in stego mediums
     and extracting them again.
 
-    :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
+    A stego object can be constructed using following equation::
+
+           stego-medium = frame + message [+ key]
+
+    :copyright: (c) 2018 by Peter Justin.
     :license: All Rights Reserved, see LICENSE for more details.
 """
 import base64
+import io
 import logging
+import os
 
+import stegano
 from stegoproxy.config import cfg
-from stegoproxy.exceptions import UnsupportedStegoAlgorithm
+from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 
 
+INPUT_IMAGES = ["img1.png"]
+
+
+def stegano_hide_lsb(message):
+    # TODO: randomize
+    image_path = os.path.join(cfg.COVER_OBJECTS, INPUT_IMAGES[0])
+    image_format = image_path.split(".", maxsplit=1)[1]
+
+    message = to_unicode(base64.b64encode(message))
+    image = stegano.lsb.hide(image_path, message, auto_convert_rgb=True)
+    stego_image = io.BytesIO()
+    image.save(stego_image, image_format)
+    return stego_image.getvalue()
+
+
+def stegano_extract_lsb(medium):
+    message = stegano.lsb.reveal(medium)
+    message = base64.b64decode(message)
+    return message
+
+
+def base64_encode(message):
+    return base64.b64encode(message)
+
+
+def base64_decode(medium):
+    return base64.b64decode(medium.getvalue())
+
+
 AVAILABLE_STEGOS = {
-    "base64": {"in": base64.b64encode, "out": base64.b64decode}
+    "base64": {"in": base64_encode, "out": base64_decode},
+    "stegano_lsb": {"in": stegano_hide_lsb, "out": stegano_extract_lsb}
 }
 
 
 def embed(message):
+    """Embeds a message inside a stego medium.
+
+    param message: The message to be embedded.
+    """
     return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](message)
 
 
 def extract(medium):
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
+    """Extracts a message from a stego medium.
 
-
-class StegoAlgorithm(object):
-    _default_stego = {
-        "base64": {"in": base64.b64encode, "out": base64.b64decode}
-    }
-
-    def __init__(self, algorithm):
-        if algorithm not in self._default_stego:
-            raise UnsupportedStegoAlgorithm(
-                f"Stego algorithm {algorithm} not supported."
-            )
-        self.name = algorithm  # name of the algorithm
-        self.algorithm = self._default_stego[algorithm]
-
-    def embed(self, message):
-        """Embeds a message inside a stego medium.
-
-        :param message: The message to be embedded.
-        """
-        return self.algorithm["in"](message)
-
-    def extract(self, medium):
-        """Extracts a message from a stego medium.
-
-        :param medium: The medium where hidden message is located in.
-        """
-        return self.algorithm["out"](medium)
-
-
-class StegoMedium(StegoAlgorithm):
-    """Represents the stego medium. As a general rule, a stego object can
-       be constructed using following equation::
-
-           stego-medium = frame + message [+ key]
+    :param medium: The medium where hidden message is located in.
     """
-
-    def __init__(self, message=None, medium=None, frame=None, algorithm=None):
-        """Constructs a stego medium.
-
-        :param message: The message to hide or extract.
-        :param medium: The stego medium that contains the hidden message.
-        :param frame: The cover object where the message will be embedded in.
-        :param algorithm: The algorithm to use for the embedding process.
-        """
-        if cfg.ALGORITHM is None and algorithm is None:
-            cfg.ALGORITHM = "base64"
-        super(StegoMedium, self).__init__(cfg.ALGORITHM)
-
-        self.message = message
-        self.frame = frame
-        self.medium = medium
-
-    def embed(self):
-        """Embeds a message inside a frame."""
-        if self.medium:
-            return self
-
-        self.medium = self.algorithm["in"](self.message)
-        return self
-
-    def extract(self):
-        """Extracts a message from a stego medium."""
-        if self.message:
-            return self
-
-        self.message = self.algorithm["out"](self.medium)
-        return self
-
-    def __repr__(self):
-        return f"<StegoMedium: {self.message}>"
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)

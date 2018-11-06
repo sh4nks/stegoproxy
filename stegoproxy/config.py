@@ -1,5 +1,8 @@
 import os
 
+_base_dir = os.path.dirname(os.path.dirname(__file__))
+
+
 LOG_DEFAULT_CONF = {
     "version": 1,
     "disable_existing_loggers": True,
@@ -23,7 +26,7 @@ LOG_DEFAULT_CONF = {
             "level": "ERROR",
             "formatter": "standard",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": os.path.join("../", "stegoproxy.log"),
+            "filename": os.path.join(_base_dir, "logs", "stegoproxy.log"),
             "mode": "a",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 5,
@@ -49,7 +52,9 @@ class Config(object):
     # Used to hide the stegoserver behind a real website
     REVERSE_HOSTNAME = "peterjustin.me"
     MAX_CONTENT_LENGTH = 1024  # in bytes
-    STEGO_ALGORITHM = "base64"
+    STEGO_ALGORITHM = "stegano_lsb"
+    # Path to the folder that contains the cover objects
+    COVER_OBJECTS = os.path.join(_base_dir, "coverobjects")
 
 
 cfg = Config()
