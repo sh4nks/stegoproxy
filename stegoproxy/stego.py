@@ -16,7 +16,6 @@
 import base64
 import io
 import logging
-import os
 
 import stegano
 from stegoproxy.config import cfg
@@ -28,44 +27,44 @@ log = logging.getLogger(__name__)
 INPUT_IMAGES = ["img1.png"]
 
 
-def stegano_hide_lsb(message):
-    # TODO: randomize
-    image_path = os.path.join(cfg.COVER_OBJECTS, INPUT_IMAGES[0])
-    image_format = image_path.split(".", maxsplit=1)[1]
-
-    message = to_unicode(base64.b64encode(message))
-    image = stegano.lsb.hide(image_path, message, auto_convert_rgb=True)
+def stegano_hide_lsb(cover, message):
+    # hide the message inside the cover
+    image = stegano.lsb.hide(cover, message, auto_convert_rgb=True)
+    # save the image in memory
     stego_image = io.BytesIO()
-    image.save(stego_image, image_format)
+    image.save(stego_image, format="png")
+    # return the in memory representation of the image
     return stego_image.getvalue()
 
 
 def stegano_extract_lsb(medium):
     message = stegano.lsb.reveal(medium)
-    message = base64.b64decode(message)
     return message
 
 
-def base64_encode(message):
-    return base64.b64encode(message)
+def null_encode(cover, message):
+    # all messages get base64 encoded by default
+    return message
 
 
-def base64_decode(medium):
-    return base64.b64decode(medium.getvalue())
+def null_decode(medium):
+    return medium
 
 
 AVAILABLE_STEGOS = {
-    "base64": {"in": base64_encode, "out": base64_decode},
+    "null": {"in": null_encode, "out": null_decode},
     "stegano_lsb": {"in": stegano_hide_lsb, "out": stegano_extract_lsb}
 }
 
 
-def embed(message):
+def embed(cover, message):
     """Embeds a message inside a stego medium.
 
+    param cover: The cover object to embed the message in.
     param message: The message to be embedded.
     """
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](message)
+    message = to_unicode(base64.b64encode(message))
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](cover, message)
 
 
 def extract(medium):
@@ -73,4 +72,5 @@ def extract(medium):
 
     :param medium: The medium where hidden message is located in.
     """
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
+    message = AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
+    return base64.b64decode(message)

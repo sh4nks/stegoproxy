@@ -51,10 +51,15 @@ class Config(object):
     STEGO_HTTP_VERSION = "HTTP/1.1"
     # Used to hide the stegoserver behind a real website
     REVERSE_HOSTNAME = "peterjustin.me"
-    MAX_CONTENT_LENGTH = 1024  # in bytes
+
+    MAX_CONTENT_LENGTH = 1024000  # in bytes
+    # Available algorithms:
+    #  - null: Doesn't hide the message (just encodes and it decodes it in b64)
+    #  - stegano_lsb
     STEGO_ALGORITHM = "stegano_lsb"
     # Path to the folder that contains the cover objects
-    COVER_OBJECTS = os.path.join(_base_dir, "coverobjects")
+    COVER_PATH = os.path.join(_base_dir, "coverobjects")
+    COVER_OBJECTS = ["img1.png", "handsome.png"]
 
 
 cfg = Config()

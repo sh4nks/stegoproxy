@@ -8,17 +8,25 @@
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
     :license: All Rights Reserved, see LICENSE for more details.
 """
+import base64
 import datetime
 import email
+import io
 import json
 import logging
+import os
+import random
 import re
 import select
 from html.parser import HTMLParser
-from http.client import HTTPMessage, HTTPResponse
+from http.client import _UNKNOWN, HTTPMessage, HTTPResponse, IncompleteRead
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import ParseResult, parse_qsl, urlparse, urlsplit, urlunparse
 
+from PIL import Image
+
+from stegoproxy import stego
+from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.exceptions import UnsupportedSchemeException
 from stegoproxy.utils import to_bytes, to_unicode
@@ -26,6 +34,23 @@ from stegoproxy.utils import to_bytes, to_unicode
 log = logging.getLogger(__name__)
 CRLF = b"\r\n"
 HTTP_VERSIONS = {10: "HTTP/1.0", 11: "HTTP/1.1"}
+
+
+class StegoHTTPResponse(HTTPResponse):
+    def _readall_chunked(self):
+        assert self.chunked != _UNKNOWN
+        value = []
+        try:
+            while True:
+                chunk_left = self._get_chunk_left()
+                if chunk_left is None:
+                    break
+                chunk = self._safe_read(chunk_left)
+                value.append(stego.extract(io.BytesIO(chunk)))
+                self.chunk_left = 0
+            return b"".join(value)
+        except IncompleteRead:
+            raise IncompleteRead(b"".join(value))
 
 
 class BaseProxyHandler(BaseHTTPRequestHandler):
@@ -174,6 +199,22 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
             if self._process_rlist(ready_to_read) or in_error:
                 break
 
+    def _write_end_of_chunks(self):
+        self.client.send(b"0\r\n\r\n")
+
+    def _write_chunks(self, chunk):
+        # no need to convert to "to_bytes" - chunk is already of type bytes
+        self.client.send(b"%X\r\n%s\r\n" % (len(chunk), chunk))
+
+    def _split_into_chunks(self, seq, chunk_size):
+        """Splits a sequence into evenly sized chunks."""
+        for i in range(0, len(seq), chunk_size):
+            yield seq[i: i + chunk_size]
+
+    def _calc_max_size(self, cover):
+        w, h = cover.size
+        return w * h * 3  # each pixel consists of RGB  thus we need * 3
+
     def _build_response_header(self, version, status, reason, headers):
         """Builds a response header.
 
@@ -244,6 +285,12 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
             # Body
             + body
         )
+
+    def _get_cover_object(self):
+        i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
+        i_path = os.path.join(cfg.COVER_PATH, i)
+        im = Image.open(i_path)
+        return im
 
     def _get_hostaddr_from_headers(self, headers):
         # first line ([0]) is request line

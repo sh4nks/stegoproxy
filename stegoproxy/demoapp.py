@@ -53,7 +53,7 @@ def streaming():
 def random_file(size=None):
     # base64 /dev/urandom | head -c 1000000000 > 1000file.txt
     sizes = [2, 10, 100, 1000]
-    filename = "2file.txt"
+    filename = "10file.txt"
     if size in sizes:
         filename = "%sfile.txt"
 

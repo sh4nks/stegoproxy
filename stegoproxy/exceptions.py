@@ -17,3 +17,7 @@ class UnsupportedSchemeException(Exception):
 
 class UnsupportedStegoAlgorithm(Exception):
     pass
+
+
+class MessageToLong(Exception):
+    pass

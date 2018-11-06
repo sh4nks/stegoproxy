@@ -22,7 +22,8 @@ from PIL import Image
 from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
-from stegoproxy.handler import BaseProxyHandler
+from stegoproxy.handler import BaseProxyHandler, StegoHTTPResponse
+from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 
@@ -30,18 +31,6 @@ log = logging.getLogger(__name__)
 class ServerProxyHandler(BaseProxyHandler):
     def __init__(self, request, client_address, server):
         BaseProxyHandler.__init__(self, request, client_address, server)
-
-    def _write_end_of_chunks(self):
-        self.client.send(b"0\r\n\r\n")
-
-    def _write_chunks(self, chunk):
-        # no need to convert to "to_bytes" - chunk is already of type bytes
-        self.client.send(b"%X\r\n%s\r\n" % (len(chunk), chunk))
-
-    def to_chunks(self, seq, chunk_size):
-        """Splits a sequence into evenly sized chunks."""
-        for i in range(0, len(seq), chunk_size):
-            yield seq[i: i + chunk_size]
 
     def _connect_to_host(self):
         # Get hostname and port to connect to
@@ -105,7 +94,7 @@ class ServerProxyHandler(BaseProxyHandler):
             self.rfile.read(int(self.headers.get("Content-Length", 0)))
         )
         stego_message = stego.extract(medium=req_body)
-        log.debug(stego_message)
+
         # Get Host and Port from the original request
         host, port = self._get_hostaddr_from_headers(stego_message)
 
@@ -135,8 +124,16 @@ class ServerProxyHandler(BaseProxyHandler):
         header = Message()
         header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
         header.add_header("Connection", "keep-alive")
+        cover = self._get_cover_object()
+        max_size = self._calc_max_size(cover)
 
-        if len(resp_from_dest) > cfg.MAX_CONTENT_LENGTH:
+        if (
+            len(resp_from_dest) > cfg.MAX_CONTENT_LENGTH
+            or len(resp_from_dest) > max_size
+        ):
+            if cfg.MAX_CONTENT_LENGTH > max_size:
+                cfg.MAX_CONTENT_LENGTH = max_size
+
             log.debug(
                 "Can't fit response into stego-response - using chunks of "
                 f"{cfg.MAX_CONTENT_LENGTH} bytes."
@@ -152,10 +149,12 @@ class ServerProxyHandler(BaseProxyHandler):
             self.client.send(resp_to_client)
 
             chunk_count = 0
-            for chunk in self.to_chunks(resp_from_dest, cfg.MAX_CONTENT_LENGTH):
+            for chunk in self._split_into_chunks(
+                resp_from_dest, cfg.MAX_CONTENT_LENGTH
+            ):
                 # Send chunks
                 log.debug(f"Sending chunk with size: {len(chunk)}")
-                self._write_chunks(stego.embed(message=chunk))
+                self._write_chunks(stego.embed(cover=cover, message=chunk))
                 chunk_count += 1
 
             # send "end of chunks" trailer
@@ -165,9 +164,8 @@ class ServerProxyHandler(BaseProxyHandler):
             # Encapsulate response inside response to stego client
             log.debug("Embedding response from website in covert medium")
 
-            stego_medium = stego.embed(message=resp_from_dest)
+            stego_medium = stego.embed(cover=cover, message=resp_from_dest)
             header.add_header("Content-Length", str(len(stego_medium)))
-            #header.add_header("Content-Type", self._get_mime_header(stego_medium))
 
             resp_to_client = self._build_response(
                 cfg.STEGO_HTTP_VERSION, h.status, h.reason, header, stego_medium

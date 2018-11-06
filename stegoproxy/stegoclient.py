@@ -12,33 +12,15 @@
 import io
 import logging
 from email.message import Message
-from http.client import _UNKNOWN, HTTPResponse, IncompleteRead
 
 from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
-from stegoproxy.handler import BaseProxyHandler
+from stegoproxy.exceptions import MessageToLong
+from stegoproxy.handler import BaseProxyHandler, StegoHTTPResponse
 from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
-
-
-class StegoHTTPResponse(HTTPResponse):
-
-    def _readall_chunked(self):
-        assert self.chunked != _UNKNOWN
-        value = []
-        try:
-            while True:
-                chunk_left = self._get_chunk_left()
-                if chunk_left is None:
-                    break
-                chunk = self._safe_read(chunk_left)
-                value.append(stego.extract(io.BytesIO(chunk)))
-                self.chunk_left = 0
-            return b''.join(value)
-        except IncompleteRead:
-            raise IncompleteRead(b''.join(value))
 
 
 class ClientProxyHandler(BaseProxyHandler):
@@ -76,11 +58,18 @@ class ClientProxyHandler(BaseProxyHandler):
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
         log.debug("Embedding request to destination in covert medium")
-        stego_medium = stego.embed(message=req_to_dest)
-
         header = Message()
         header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
         header.add_header("Connection", "keep-alive")
+
+        cover = self._get_cover_object()
+        max_size = self._calc_max_size(cover)
+
+        if len(req_to_dest) > max_size:
+            log.error("Message doesn't fit inside cover object.")
+            raise MessageToLong("Message doesn't fit inside cover object.")
+
+        stego_medium = stego.embed(cover=cover, message=req_to_dest)
         header.add_header("Content-Length", str(len(stego_medium)))
 
         req_to_server = self._build_request(
@@ -106,6 +95,7 @@ class ClientProxyHandler(BaseProxyHandler):
         # Extract exact Response StegoServer's Stego-Response
         log.debug("Extracting stego-response from stegoserver")
         if h.chunked:
+            # each chunk got seperately extracted
             stego_message = h.read()
         else:
             stego_message = stego.extract(medium=io.BytesIO(h.read()))
