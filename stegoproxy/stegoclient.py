@@ -33,9 +33,25 @@ class ClientProxyHandler(BaseProxyHandler):
         self.remote_path = f"http://{self.hostname}:{self.port}/"
         # establish connection to the stegoserver
         log.info(f"Connecting to stegoserver on {self.hostname}:{self.port}")
-        self.server = Server(self.hostname, int(self.port))
-        self.server.connect()
+        self.server = Server(host=self.hostname, port=int(self.port))
         self.client = Client(self.connection)  # reusing the connection here
+
+    def do_CONNECT(self):
+        self.is_connect = True
+        try:
+            # Connect to destination first
+            super()._connect_to_host()
+
+            # If successful, let's do this!
+            self.send_response(200, "Connection Established")
+            self.end_headers()
+        except Exception as e:
+            self.send_error(500, str(e))
+            return
+
+        log.info(f"{self.command} {self.path}")
+
+        self._process_connect()
 
     def do_COMMAND(self):
         try:

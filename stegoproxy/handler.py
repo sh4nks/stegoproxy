@@ -95,8 +95,7 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
                 )
             )
 
-        self.server = Server(self.hostname, int(self.port))
-        self.server.connect()
+        self.server = Server(host=self.hostname, port=int(self.port))
         self.client = Client(self.connection)  # reusing the connection here
 
     def _get_waitable_lists(self):
@@ -309,7 +308,7 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
         )
 
     def _get_cover_object(self):
-        #i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
+        # i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
         i = cfg.COVER_OBJECTS[1]
         i_path = os.path.join(cfg.COVER_PATH, i)
         im = Image.open(i_path)

@@ -74,19 +74,20 @@ class Connection(object):
 class Server(Connection):
     """Establish connection to destination server."""
 
-    def __init__(self, host, port):
+    def __init__(self, conn=None, host=None, port=None):
         super(Server, self).__init__(b"server")
-        self.addr = (host, int(port))
-
-    def connect(self, intercept=False):
-        self.conn = socket.create_connection((self.addr[0], self.addr[1]))
-        if intercept:
-            self.conn = ssl.wrap_socket(self.conn)
+        if host and port:
+            self.conn = socket.create_connection((host, port))
+        else:
+            self.conn = conn
 
 
 class Client(Connection):
     """Accepted client connection."""
 
-    def __init__(self, conn):
+    def __init__(self, conn=None, host=None, port=None):
         super(Client, self).__init__(b"client")
-        self.conn = conn
+        if host and port:
+            self.conn = socket.create_connection((host, port))
+        else:
+            self.conn = conn

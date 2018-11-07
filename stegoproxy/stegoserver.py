@@ -11,6 +11,7 @@
 """
 import io
 import logging
+import time
 from email.message import Message
 from http.client import HTTPResponse
 from urllib.error import HTTPError
@@ -100,8 +101,7 @@ class ServerProxyHandler(BaseProxyHandler):
 
         # establish connection to the website
         log.info(f"Connecting to {host}:{port}")
-        self.server = Server(host, port)
-        self.server.connect()
+        self.server = Server(host=host, port=port)
 
         # Just relay the original request to the website
         log.debug("Relaying extracted request to website")
@@ -128,8 +128,8 @@ class ServerProxyHandler(BaseProxyHandler):
         max_size = self._calc_max_size(cover)
 
         if (
-            len(stego_resp) > max_size or
-            len(stego_resp) > cfg.MAX_CONTENT_LENGTH
+            len(stego_resp) > max_size
+            or len(stego_resp) > cfg.MAX_CONTENT_LENGTH
         ):
             if cfg.MAX_CONTENT_LENGTH > max_size:
                 cfg.MAX_CONTENT_LENGTH = max_size
@@ -148,18 +148,22 @@ class ServerProxyHandler(BaseProxyHandler):
             log.debug("Sending chunked stego-response header to stegoclient")
             self.client.send(resp_to_client)
 
+            start = time.time()
             chunk_count = 0
             for chunk in self._split_into_chunks(
                 stego_resp, cfg.MAX_CONTENT_LENGTH
             ):
                 # Send chunks
                 log.debug(f"Sending chunk with size: {len(chunk)}")
-                self._write_chunks(stego.embed(cover=cover.copy(), message=chunk))
+                self._write_chunks(
+                    stego.embed(cover=cover.copy(), message=chunk)
+                )
                 chunk_count += 1
 
+            end = time.time()
             # send "end of chunks" trailer
             self._write_end_of_chunks()
-            log.debug(f"{chunk_count} chunks sent.")
+            log.debug(f"{chunk_count} chunks sent in {int(end - start)}s.")
         else:
             # Encapsulate response inside response to stego client
             log.debug("Embedding response from website in stego-response")
