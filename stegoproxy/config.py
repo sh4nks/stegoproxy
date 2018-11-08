@@ -47,7 +47,7 @@ LOG_DEFAULT_CONF = {
 class Config(object):
     BASE_DIR = _base_dir
     LOGGING_CONFIG = LOG_DEFAULT_CONF
-    ALGORITHM = "null"  # If None: defaults to "base64"
+    ALGORITHM = "null"  # If None: defaults to "null"
     REMOTE_ADDR = None  # If None: defaults to "localhost:9999"
     STEGO_HTTP_COMMAND = "POST"
     STEGO_HTTP_PATH = "/"

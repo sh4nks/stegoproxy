@@ -37,7 +37,7 @@ def main(args=None):
     """Console script for stegoproxy."""
 
 
-@main.command()
+@main.command(context_settings=dict(max_content_width=120))
 @click.option(
     "--host",
     "-h",
@@ -53,6 +53,13 @@ def main(args=None):
     help="The remote server",
 )
 @click.option(
+    "--algorithm",
+    "-a",
+    default="null",
+    show_default=True,
+    help="The stego algorithm. Use 'stegano_lsb', 'stegano_exif' or 'null'",
+)
+@click.option(
     "--no-reloader", is_flag=True, default=True, help="Disable the reloader"
 )
 @click.option(
@@ -64,13 +71,17 @@ def main(args=None):
     show_default=True,
     help="DEBUG, INFO, WARNING or ERROR",
 )
-def client(host, remote, no_reloader, no_threading, log_level):
+def client(host, remote, algorithm, no_reloader, no_threading, log_level):
     """Runs the client side proxy."""
     log.setLevel(LOG_LEVELS.get(log_level, "INFO"))
     host, port = host.split(":")
     remote_ip, remote_port = remote.split(":")
 
     cfg.REMOTE_ADDR = (remote_ip, int(remote_port))
+    cfg.ALGORITHM = algorithm.lower()
+
+    log.info("Starting stegoproxy client...")
+    log.info(f"Using steganography algorithm: {cfg.ALGORITHM}")
 
     run_server(
         hostname=host,
@@ -81,13 +92,21 @@ def client(host, remote, no_reloader, no_threading, log_level):
     )
 
 
-@main.command()
+@main.command(context_settings=dict(max_content_width=120))
 @click.option(
     "--host",
     "-h",
     default="127.0.0.1:9999",
     show_default=True,
     help="Address to bind to\n",
+)
+@click.option(
+    "--algorithm",
+    "-a",
+    type=click.Choice(cfg.AVAILABLE_STEGOS.keys()),
+    default="null",
+    show_default=True,
+    help="The stego algorithm",
 )
 @click.option(
     "--no-reloader", is_flag=True, default=True, help="Disable the reloader"
@@ -101,12 +120,16 @@ def client(host, remote, no_reloader, no_threading, log_level):
     show_default=True,
     help="DEBUG, INFO, WARNING or ERROR",
 )
-def server(host, no_reloader, no_threading, log_level):
+def server(host, algorithm, no_reloader, no_threading, log_level):
     """Runs the server side proxy."""
     log.setLevel(LOG_LEVELS.get(log_level, "INFO"))
     host, port = host.split(":")
 
     cfg.REMOTE_ADDR = (host, int(port))
+    cfg.ALGORITHM = algorithm.lower()
+
+    log.info("Starting stegoproxy server...")
+    log.info(f"Using steganography algorithm: {cfg.ALGORITHM}")
 
     run_server(
         hostname=host,
@@ -117,7 +140,7 @@ def server(host, no_reloader, no_threading, log_level):
     )
 
 
-@main.command()
+@main.command(context_settings=dict(max_content_width=120))
 @click.option(
     "--host",
     "-h",
