@@ -126,17 +126,12 @@ class ServerProxyHandler(BaseProxyHandler):
         header.add_header("Connection", "keep-alive")
         cover = self._get_cover_object()
         max_size = self._calc_max_size(cover)
+        resp_len = len(stego_resp)
 
-        if (
-            len(stego_resp) > max_size
-            or len(stego_resp) > cfg.MAX_CONTENT_LENGTH
-        ):
-            if cfg.MAX_CONTENT_LENGTH > max_size:
-                cfg.MAX_CONTENT_LENGTH = max_size
-
+        if(max_size is not None and resp_len > max_size):
             log.debug(
-                f"Can't fit response ({len(stego_resp)} bytes) into stego-response - "
-                f"splitting into chunks of {cfg.MAX_CONTENT_LENGTH} bytes."
+                f"Can't fit response ({resp_len} bytes) into stego-response - "
+                f"splitting into chunks of {max_size} bytes."
             )
 
             header.add_header("Transfer-Encoding", "chunked")
@@ -151,13 +146,16 @@ class ServerProxyHandler(BaseProxyHandler):
             start = time.time()
             chunk_count = 0
             for chunk in self._split_into_chunks(
-                stego_resp, cfg.MAX_CONTENT_LENGTH
+                stego_resp, max_size
             ):
+                if isinstance(cover, Image.Image):
+                    tmp_cover = cover.copy()
+                else:
+                    tmp_cover = cover
+
                 # Send chunks
                 log.debug(f"Sending chunk with size: {len(chunk)} bytes")
-                self._write_chunks(
-                    stego.embed(cover=cover.copy(), message=chunk)
-                )
+                self._write_chunks(stego.embed(cover=tmp_cover, message=chunk))
                 chunk_count += 1
 
             end = time.time()
@@ -169,9 +167,11 @@ class ServerProxyHandler(BaseProxyHandler):
             log.debug("Embedding response from website in stego-response")
 
             start = time.time()
-            stego_medium = stego.embed(cover=cover.copy(), message=stego_resp)
+            stego_medium = stego.embed(cover=cover, message=stego_resp)
             end = time.time()
-            log.debug(f"Took {end - start:.2f}s to embed response in stego-response")
+            log.debug(
+                f"Took {end - start:.2f}s to embed response in stego-response"
+            )
 
             header.add_header("Content-Length", str(len(stego_medium)))
 
@@ -183,7 +183,9 @@ class ServerProxyHandler(BaseProxyHandler):
             log.debug("Relaying stego-response to stegoclient")
             self.client.send(resp_to_client)
 
-        cover.close()
+        if isinstance(cover, Image.Image):
+            cover.close()
+
         # Let's close off the remote end
         h.close()
         self.server.close()

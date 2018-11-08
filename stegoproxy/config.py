@@ -1,5 +1,7 @@
 import os
 
+from stegoproxy import stego
+
 _base_dir = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -45,7 +47,7 @@ LOG_DEFAULT_CONF = {
 class Config(object):
     BASE_DIR = _base_dir
     LOGGING_CONFIG = LOG_DEFAULT_CONF
-    ALGORITHM = None    # If None: defaults to "base64"
+    ALGORITHM = "null"  # If None: defaults to "base64"
     REMOTE_ADDR = None  # If None: defaults to "localhost:9999"
     STEGO_HTTP_COMMAND = "POST"
     STEGO_HTTP_PATH = "/"
@@ -53,14 +55,31 @@ class Config(object):
     # Used to hide the stegoserver behind a real website
     REVERSE_HOSTNAME = "peterjustin.me"
 
-    MAX_CONTENT_LENGTH = 500000  # in bytes
-    # Available algorithms:
-    #  - null: Doesn't hide the message (just encodes and it decodes it in b64)
-    #  - stegano_lsb
-    STEGO_ALGORITHM = "stegano_exif"
+    AVAILABLE_STEGOS = {
+        "null": {
+            "in": stego.null_encode,
+            "out": stego.null_decode,
+            "formats": None,
+            "size": 5000000
+        },
+        "stegano_lsb": {
+            "in": stego.stegano_hide_lsb,
+            "out": stego.stegano_extract_lsb,
+            "formats": "png",
+            "size": 500000,  # hardlimit - gets recalculated later
+        },
+        "stegano_exif": {
+            "in": stego.stegano_hide_exif,
+            "out": stego.stegano_extract_exif,
+            "formats": "jpeg",
+            "size": 65536,  # Don't change me!
+        },
+    }
+    # Algorithm to use
+    STEGO_ALGORITHM = AVAILABLE_STEGOS[ALGORITHM]
     # Path to the folder that contains the cover objects
     COVER_PATH = os.path.join(_base_dir, "coverobjects")
-    COVER_OBJECTS = ["handsome.jpeg", "img1.png", "handsome.png"]
+    COVER_OBJECTS = {"jpeg": ["handsome.jpeg"], "png": ["img1.png"]}
 
 
 cfg = Config()

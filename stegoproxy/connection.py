@@ -11,7 +11,6 @@
 """
 import logging
 import socket
-import ssl
 
 log = logging.getLogger(__name__)
 

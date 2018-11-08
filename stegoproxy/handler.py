@@ -18,6 +18,7 @@ import os
 import random
 import re
 import select
+import sys
 from html.parser import HTMLParser
 from http.client import _UNKNOWN, HTTPMessage, HTTPResponse, IncompleteRead
 from http.server import BaseHTTPRequestHandler
@@ -210,11 +211,29 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
         for i in range(0, len(seq), chunk_size):
             yield seq[i : i + chunk_size]
 
+    def _get_cover_object(self):
+        # i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
+        if cfg.STEGO_ALGORITHM.get("formats") is not None:
+            if cfg.STEGO_ALGORITHM.get("formats") == "jpeg":
+                i = cfg.COVER_OBJECTS.get("jpeg")[0]
+            elif cfg.STEGO_ALGORITHM.get("formats") == "png":
+                i = cfg.COVER_OBJECTS.get("png")[0]
+
+            im = Image.open(os.path.join(cfg.COVER_PATH, i))
+            return im
+
+        return None
+
     def _calc_max_size(self, cover):
-        w, h = cover.size
-        # each pixel consists of RGB  thus we need * 3
-        # / 8 because ONE character is represented by 8 bits
-        return int(w * h * 3 / 8) - 1024
+        if isinstance(cover, Image.Image):
+            if cfg.STEGO_ALGORITHM.get("formats") == "jpeg":
+                return cfg.STEGO_ALGORITHM.get("size")
+            elif cfg.STEGO_ALGORITHM.get("formats") == "png":
+                w, h = cover.size
+                # each pixel consists of RGB  thus we need * 3
+                # / 8 because ONE character is represented by 8 bits
+                return int(w * h * 3 / 8) - 1024
+        return cfg.STEGO_ALGORITHM.get("size", sys.maxsize)
 
     def _encode(self, s):
         return base64.b64encode(s)
@@ -306,13 +325,6 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
         return self._encode(
             self._build_response(request_version, status, reason, headers, body)
         )
-
-    def _get_cover_object(self):
-        # i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
-        i = cfg.COVER_OBJECTS[0]
-        i_path = os.path.join(cfg.COVER_PATH, i)
-        im = Image.open(i_path)
-        return im
 
     def _get_hostaddr_from_headers(self, headers):
         # first line ([0]) is request line

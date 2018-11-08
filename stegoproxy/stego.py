@@ -22,7 +22,6 @@ from PIL import Image
 
 import piexif
 import stegano
-from stegoproxy.config import cfg
 from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
@@ -46,11 +45,7 @@ def stegano_extract_lsb(medium):
     return message
 
 
-def stegano_hide_exif(
-    cover,
-    message,
-    img_format="JPEG",
-):
+def stegano_hide_exif(cover, message, img_format="JPEG"):
     """Hide a message (string) in an image."""
     text = compress(to_bytes(message))
 
@@ -93,18 +88,12 @@ def stegano_extract_exif(medium):
 
 def null_encode(cover, message):
     # all messages get base64 encoded by default
-    return message
+    return to_bytes(message)
 
 
 def null_decode(medium):
-    return medium
-
-
-AVAILABLE_STEGOS = {
-    "null": {"in": null_encode, "out": null_decode},
-    "stegano_lsb": {"in": stegano_hide_lsb, "out": stegano_extract_lsb},
-    "stegano_exif": {"in": stegano_hide_exif, "out": stegano_extract_exif},
-}
+    # medium is a BytesIO object
+    return medium.getvalue()
 
 
 def embed(cover, message):
@@ -113,9 +102,8 @@ def embed(cover, message):
     param cover: The cover object to embed the message in.
     param message: The message to be embedded.
     """
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](
-        cover, to_unicode(message)
-    )
+    from stegoproxy.config import cfg
+    return cfg.STEGO_ALGORITHM["in"](cover, to_unicode(message))
 
 
 def extract(medium):
@@ -123,7 +111,5 @@ def extract(medium):
 
     :param medium: The medium where hidden message is located in.
     """
-    message = AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["out"](medium)
-    # all messages are base64 encoded
-    # TODO: Fix this ugly hack
-    return base64.b64decode(message)
+    from stegoproxy.config import cfg
+    return base64.b64decode(cfg.STEGO_ALGORITHM["out"](medium))
