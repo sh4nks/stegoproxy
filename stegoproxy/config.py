@@ -13,7 +13,7 @@ LOG_DEFAULT_CONF = {
         },
         "colored": {
             "()": "colorlog.ColoredFormatter",
-            "format": "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",  # noqa
+            "format": "%(log_color)s%(levelname)-8s%(reset)s %(cyan)s%(message)s",  # noqa
         },
     },
     "handlers": {
@@ -43,6 +43,7 @@ LOG_DEFAULT_CONF = {
 
 
 class Config(object):
+    BASE_DIR = _base_dir
     LOGGING_CONFIG = LOG_DEFAULT_CONF
     ALGORITHM = None    # If None: defaults to "base64"
     REMOTE_ADDR = None  # If None: defaults to "localhost:9999"
@@ -56,10 +57,10 @@ class Config(object):
     # Available algorithms:
     #  - null: Doesn't hide the message (just encodes and it decodes it in b64)
     #  - stegano_lsb
-    STEGO_ALGORITHM = "stegano_lsb"
+    STEGO_ALGORITHM = "stegano_exif"
     # Path to the folder that contains the cover objects
     COVER_PATH = os.path.join(_base_dir, "coverobjects")
-    COVER_OBJECTS = ["img1.png", "handsome.png"]
+    COVER_OBJECTS = ["handsome.jpeg", "img1.png", "handsome.png"]
 
 
 cfg = Config()

@@ -309,7 +309,7 @@ class BaseProxyHandler(BaseHTTPRequestHandler):
 
     def _get_cover_object(self):
         # i = cfg.COVER_OBJECTS[random.randint(0, len(cfg.COVER_OBJECTS) - 1)]
-        i = cfg.COVER_OBJECTS[1]
+        i = cfg.COVER_OBJECTS[0]
         i_path = os.path.join(cfg.COVER_PATH, i)
         im = Image.open(i_path)
         return im

@@ -1,0 +1,6 @@
+[submodule "vendored/steganography"]
+	path = vendored/steganography
+	url = git@someblocks.com:sh4nks/steganography.git
+[submodule "vendored/Stegano"]
+	path = vendored/Stegano
+	url = git@someblocks.com:sh4nks/Stegano.git

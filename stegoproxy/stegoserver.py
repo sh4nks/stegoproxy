@@ -135,7 +135,7 @@ class ServerProxyHandler(BaseProxyHandler):
                 cfg.MAX_CONTENT_LENGTH = max_size
 
             log.debug(
-                f"Can't fit response ({len(stego_resp)}) into stego-response - "
+                f"Can't fit response ({len(stego_resp)} bytes) into stego-response - "
                 f"splitting into chunks of {cfg.MAX_CONTENT_LENGTH} bytes."
             )
 
@@ -154,7 +154,7 @@ class ServerProxyHandler(BaseProxyHandler):
                 stego_resp, cfg.MAX_CONTENT_LENGTH
             ):
                 # Send chunks
-                log.debug(f"Sending chunk with size: {len(chunk)}")
+                log.debug(f"Sending chunk with size: {len(chunk)} bytes")
                 self._write_chunks(
                     stego.embed(cover=cover.copy(), message=chunk)
                 )
@@ -163,12 +163,16 @@ class ServerProxyHandler(BaseProxyHandler):
             end = time.time()
             # send "end of chunks" trailer
             self._write_end_of_chunks()
-            log.debug(f"{chunk_count} chunks sent in {int(end - start)}s.")
+            log.debug(f"{chunk_count} chunks sent in {end - start:.2f}s.")
         else:
             # Encapsulate response inside response to stego client
             log.debug("Embedding response from website in stego-response")
 
+            start = time.time()
             stego_medium = stego.embed(cover=cover.copy(), message=stego_resp)
+            end = time.time()
+            log.debug(f"Took {end - start:.2f}s to embed response in stego-response")
+
             header.add_header("Content-Length", str(len(stego_medium)))
 
             resp_to_client = self._build_response(

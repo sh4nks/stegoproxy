@@ -16,7 +16,11 @@
 import base64
 import io
 import logging
+from zlib import compress, decompress
 
+from PIL import Image
+
+import piexif
 import stegano
 from stegoproxy.config import cfg
 from stegoproxy.utils import to_bytes, to_native, to_unicode
@@ -42,6 +46,51 @@ def stegano_extract_lsb(medium):
     return message
 
 
+def stegano_hide_exif(
+    cover,
+    message,
+    img_format="JPEG",
+):
+    """Hide a message (string) in an image."""
+    text = compress(to_bytes(message))
+
+    if img_format is None:
+        img_format = cover.format
+
+    if "exif" in cover.info:
+        exif_dict = piexif.load(cover.info["exif"])
+    else:
+        exif_dict = {}
+        exif_dict["0th"] = {}
+    exif_dict["0th"][piexif.ImageIFD.ImageDescription] = text
+    exif_bytes = piexif.dump(exif_dict)
+
+    # save the image in memory
+    stego_image = io.BytesIO()
+    cover.save(stego_image, format=img_format, exif=exif_bytes)
+    cover.close()
+    return stego_image.getvalue()
+
+
+def stegano_extract_exif(medium):
+    """Find a message in an image."""
+    img = Image.open(medium)
+    try:
+        if img.format in ["JPEG", "TIFF"]:
+            if "exif" in img.info:
+                exif_dict = piexif.load(img.info.get("exif", b""))
+                description_key = piexif.ImageIFD.ImageDescription
+                encoded_message = exif_dict["0th"][description_key]
+            else:
+                encoded_message = b""
+        else:
+            raise ValueError("Given file is neither JPEG nor TIFF.")
+    finally:
+        img.close()
+
+    return decompress(encoded_message)
+
+
 def null_encode(cover, message):
     # all messages get base64 encoded by default
     return message
@@ -53,7 +102,8 @@ def null_decode(medium):
 
 AVAILABLE_STEGOS = {
     "null": {"in": null_encode, "out": null_decode},
-    "stegano_lsb": {"in": stegano_hide_lsb, "out": stegano_extract_lsb}
+    "stegano_lsb": {"in": stegano_hide_lsb, "out": stegano_extract_lsb},
+    "stegano_exif": {"in": stegano_hide_exif, "out": stegano_extract_exif},
 }
 
 
@@ -63,7 +113,9 @@ def embed(cover, message):
     param cover: The cover object to embed the message in.
     param message: The message to be embedded.
     """
-    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](cover, to_unicode(message))
+    return AVAILABLE_STEGOS[cfg.STEGO_ALGORITHM]["in"](
+        cover, to_unicode(message)
+    )
 
 
 def extract(medium):

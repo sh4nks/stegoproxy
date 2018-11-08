@@ -11,6 +11,7 @@
 """
 import io
 import logging
+import time
 from email.message import Message
 
 from stegoproxy import stego
@@ -85,7 +86,11 @@ class ClientProxyHandler(BaseProxyHandler):
             log.error("Message doesn't fit inside cover object.")
             raise MessageToLong("Message doesn't fit inside cover object.")
 
+        start = time.time()
         stego_medium = stego.embed(cover=cover, message=stego_req)
+        end = time.time()
+        log.debug(f"Took {end - start:.2f}s to embed response in stego-response")
+
         header.add_header("Content-Length", str(len(stego_medium)))
 
         req_to_server = self._build_request(
@@ -99,7 +104,6 @@ class ClientProxyHandler(BaseProxyHandler):
         # Send the request to the stego server
         log.debug("Sending stego-request to stegoserver...")
         self.server.send(req_to_server)
-
         # Parse the response from the stego server
         # which contains the response from the browser
         h = StegoHTTPResponse(self.server.conn)

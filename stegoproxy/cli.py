@@ -10,6 +10,7 @@
 """
 import logging
 import logging.config
+import os
 import sys
 
 import click
@@ -133,8 +134,8 @@ def demoapp(host, use_https):
 
     if use_https:
         run_config["ssl_context"] = (
-            "../stego.local.cert.pem",
-            "../stego.local.key.pem",
+            os.path.join(cfg.BASE_DIR, "stego.local.cert.pem"),
+            os.path.join(cfg.BASE_DIR, "stego.local.key.pem"),
         )
 
     app.run(**run_config)
