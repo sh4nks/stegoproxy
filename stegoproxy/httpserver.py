@@ -146,6 +146,8 @@ def run_server(
     threaded=False,
     processes=1,
     passthrough_errors=False,
+    what=None,
+    algorithm=None
 ):
     """Starts a HTTP Server. Optional features include a reloader,
     multithreading and fork support.
@@ -178,6 +180,10 @@ def run_server(
             hostname not in ("", "*") and hostname or "localhost"
         )  # noqa
         quit_msg = "(Press CTRL+C to quit)"
+        if what is not None and algorithm is not None:
+            log.info(f"Starting stegoproxy {what}...")
+            log.info(f"Using steganography algorithm: {algorithm}")
+
         if sock.family is socket.AF_UNIX:
             log.info("Running on %s %s" % (display_hostname, quit_msg))
         else:

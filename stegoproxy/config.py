@@ -76,7 +76,7 @@ class Config(object):
         },
     }
     # Algorithm to use
-    STEGO_ALGORITHM = AVAILABLE_STEGOS[ALGORITHM]
+    STEGO_ALGORITHM = None
     # Path to the folder that contains the cover objects
     COVER_PATH = os.path.join(_base_dir, "coverobjects")
     COVER_OBJECTS = {"jpeg": ["handsome.jpeg"], "png": ["img1.png"]}

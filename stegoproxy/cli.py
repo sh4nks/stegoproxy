@@ -79,9 +79,7 @@ def client(host, remote, algorithm, no_reloader, no_threading, log_level):
 
     cfg.REMOTE_ADDR = (remote_ip, int(remote_port))
     cfg.ALGORITHM = algorithm.lower()
-
-    log.info("Starting stegoproxy client...")
-    log.info(f"Using steganography algorithm: {cfg.ALGORITHM}")
+    cfg.STEGO_ALGORITHM = cfg.AVAILABLE_STEGOS[cfg.ALGORITHM]
 
     run_server(
         hostname=host,
@@ -89,6 +87,8 @@ def client(host, remote, algorithm, no_reloader, no_threading, log_level):
         request_handler=ClientProxyHandler,
         use_reloader=no_reloader,
         threaded=no_threading,
+        what="client",
+        algorithm=cfg.ALGORITHM
     )
 
 
@@ -127,9 +127,7 @@ def server(host, algorithm, no_reloader, no_threading, log_level):
 
     cfg.REMOTE_ADDR = (host, int(port))
     cfg.ALGORITHM = algorithm.lower()
-
-    log.info("Starting stegoproxy server...")
-    log.info(f"Using steganography algorithm: {cfg.ALGORITHM}")
+    cfg.STEGO_ALGORITHM = cfg.AVAILABLE_STEGOS[cfg.ALGORITHM]
 
     run_server(
         hostname=host,
@@ -137,6 +135,8 @@ def server(host, algorithm, no_reloader, no_threading, log_level):
         request_handler=ServerProxyHandler,
         use_reloader=no_reloader,
         threaded=no_threading,
+        what="client",
+        algorithm=cfg.ALGORITHM
     )
 
 

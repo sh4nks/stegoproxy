@@ -11,32 +11,54 @@
     :license: All Rights Reserved, see LICENSE for more details.
 """
 import os
+from time import sleep
 
-from flask import Flask, Response, send_from_directory, stream_with_context
+from flask import (Flask, Response, render_template_string,
+                   send_from_directory, stream_with_context)
 
-app = Flask(__name__)
+__base_dir = os.path.dirname(os.path.dirname(__file__))
+static_folder = os.path.join(__base_dir, "coverobjects")
+
+
+app = Flask(__name__, static_folder=static_folder)
+
 
 tpl = """\
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-<title>STEGO PROXY HTTPS</title>
+<title>Stego Proxy Testing Facilities</title>
 </head>
-<body>{body}</body>
+<body>
+{% if content %}
+<img src={{url_for('static', filename='handsome.png')}} />
+<img src={{url_for('static', filename='handsome.jpeg')}} />
+{% else %}
+{{body|safe}}</body>
+{% endif %}
 </html>
 """
 
 
 @app.route("/")
 def hello_world():
-    return tpl.format(body="yeet this stego thingy is lit af")
+    body = (
+        "Hello, I am Stegosaurus, a wild algorithmic animal that "
+        "tries to stay hidden in the shadows of the world wide web."
+    )
+    return render_template_string(tpl, body=body)
+
+
+@app.route("/externcontent")
+def externcontent():
+    body = "<img src='https://flaskbb.net/static/imgs/index.png' />"
+    return render_template_string(tpl, body=body)
 
 
 @app.route("/content")
 def content():
-    return tpl.format(
-        body="<img src='https://flaskbb.net/static/imgs/index.png' />"
-    )
+    return render_template_string(tpl, content=True)
 
 
 @app.route("/streaming")
@@ -48,15 +70,10 @@ def streaming():
     return Response(stream_with_context(generate()))
 
 
-@app.route("/randomfile/<int:size>")
 @app.route("/randomfile")
-def random_file(size=None):
+def random_file():
     # base64 /dev/urandom | head -c 1000000000 > 1000file.txt
-    sizes = [2, 10, 100, 1000]
     filename = "10file.txt"
-    if size in sizes:
-        filename = "%sfile.txt"
-
     return send_from_directory(
         os.path.dirname(app.root_path), filename, as_attachment=False
     )
