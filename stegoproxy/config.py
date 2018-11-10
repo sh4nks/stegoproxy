@@ -74,6 +74,12 @@ class Config(object):
             "formats": "jpeg",
             "size": 65536,  # Don't change me!
         },
+        "stegolsb": {
+            "in": stego.stegolsb_hide_lsb,
+            "out": stego.stegolsb_extract_lsb,
+            "formats": "png",
+            "size": 500000,  # hardlimit - gets recalculated later
+        },
     }
     # Algorithm to use
     STEGO_ALGORITHM = None

@@ -22,12 +22,29 @@ from PIL import Image
 
 import piexif
 import stegano
+from stego_lsb import LSBSteg
 from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 
 
 INPUT_IMAGES = ["img1.png"]
+
+
+def stegolsb_hide_lsb(cover, message):
+    # hide the message inside the cover
+    image = LSBSteg.hide_message_in_image(cover, message, num_lsb=1)
+    # save the image in memory
+    stego_image = io.BytesIO()
+    image.save(stego_image, format="png")
+    image.close()
+    # return the in memory representation of the image
+    return stego_image.getvalue()
+
+
+def stegolsb_extract_lsb(medium):
+    message = LSBSteg.recover_message_from_image(medium, num_lsb=1)
+    return message
 
 
 def stegano_hide_lsb(cover, message):
