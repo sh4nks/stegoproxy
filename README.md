@@ -1,6 +1,9 @@
 # Steganography Proxy
 
-A HTTP/S proxy that uses steganographic algorithms.
+_A HTTP Proxy that uses steganographic algorithms for establishing covert
+communication channels._
+
+The corresponding thesis can be found [here](https://git-iit.fh-joanneum.at/peterjustin/steganography_proxy_thesis).
 
 
 # Usage
