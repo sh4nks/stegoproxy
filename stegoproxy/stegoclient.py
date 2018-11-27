@@ -19,7 +19,6 @@ from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
 from stegoproxy.exceptions import MessageToLong
 from stegoproxy.handler import BaseProxyHandler, StegoHTTPResponse
-from stegoproxy.utils import to_bytes, to_native, to_unicode
 
 log = logging.getLogger(__name__)
 

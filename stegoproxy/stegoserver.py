@@ -23,8 +23,7 @@ from PIL import Image
 from stegoproxy import stego
 from stegoproxy.config import cfg
 from stegoproxy.connection import Client, Server
-from stegoproxy.handler import BaseProxyHandler, StegoHTTPResponse
-from stegoproxy.utils import to_bytes, to_native, to_unicode
+from stegoproxy.handler import BaseProxyHandler
 
 log = logging.getLogger(__name__)
 
