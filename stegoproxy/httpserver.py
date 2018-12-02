@@ -50,14 +50,11 @@ class BaseHTTPServer(HTTPServer, object):
 
     def __init__(self, host, port, handler, passthrough_errors=False):
         self.address_family = select_address_family(host, port)
+        self.passthrough_errors = passthrough_errors
+        self.shutdown_signal = False
         server_address = get_sockaddr(host, int(port), self.address_family)
 
         HTTPServer.__init__(self, server_address, handler)
-
-        self.passthrough_errors = passthrough_errors
-        self.shutdown_signal = False
-        self.host = host
-        self.port = self.socket.getsockname()[1]
 
     def log(self, type, message, *args):
         log.info(type, message, *args)
@@ -75,10 +72,6 @@ class BaseHTTPServer(HTTPServer, object):
         if self.passthrough_errors:
             raise
         return HTTPServer.handle_error(self, request, client_address)
-
-    def get_request(self):
-        con, info = self.socket.accept()
-        return con, info
 
 
 class ThreadedHTTPServer(ThreadingMixIn, BaseHTTPServer):

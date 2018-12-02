@@ -74,9 +74,6 @@ class ClientProxyHandler(BaseProxyHandler):
         # Build request for StegoServer
         # Browser <--> [StegoClient <--> StegoServer] <--> Website
         log.debug("Embedding request to destination in stego-request")
-        header = Message()
-        header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
-        header.add_header("Connection", "keep-alive")
 
         cover = self._get_cover_object()
         max_size = self._calc_max_size(cover)
@@ -90,6 +87,9 @@ class ClientProxyHandler(BaseProxyHandler):
         end = time.time()
         log.debug(f"Took {end - start:.2f}s to embed response in stego-response")
 
+        header = Message()
+        header.add_header("Host", f"{cfg.REMOTE_ADDR[0]}:{cfg.REMOTE_ADDR[1]}")
+        header.add_header("Connection", "keep-alive")
         header.add_header("Content-Length", str(len(stego_medium)))
 
         req_to_server = self._build_request(

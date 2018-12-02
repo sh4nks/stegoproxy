@@ -135,7 +135,7 @@ def server(host, algorithm, no_reloader, no_threading, log_level):
         request_handler=ServerProxyHandler,
         use_reloader=no_reloader,
         threaded=no_threading,
-        what="client",
+        what="server",
         algorithm=cfg.ALGORITHM
     )
 
@@ -152,6 +152,7 @@ def server(host, algorithm, no_reloader, no_threading, log_level):
     "--use-https", is_flag=True, default=False, help="Use HTTPS instead of HTTP"
 )
 def demoapp(host, use_https):
+    """Runs a simple demo web server."""
     host, port = host.split(":")
     run_config = dict(host=host, port=int(port), debug=True)
 

@@ -23,7 +23,7 @@ from PIL import Image
 import piexif
 import stegano
 from stego_lsb import LSBSteg
-from stegoproxy.utils import to_bytes, to_native, to_unicode
+from stegoproxy.utils import to_bytes, to_unicode
 
 log = logging.getLogger(__name__)
 
