@@ -12,15 +12,10 @@ It is advised to execute these commands inside a
 [virtualenv](https://virtualenv.pypa.io/en/stable/userguide/) in order to not
 pollute your system.
 
-
-Install from PyPI:
-```bash
-pip install stegoproxy
-```
-or from local disk (be sure to be inside the directory where the `setup.py` file
+Install from local disk (make sure to be inside the directory where the `setup.py` file
 is located):
 ```bash
-pip install -e .
+pip install -r requirements-dev.txt
 ```
 
 Start the stegoproxy server (listens on port `9999` by default):
