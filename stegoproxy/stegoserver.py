@@ -7,7 +7,7 @@
     from the client.
 
     :copyright: (c) 2018 by Peter Justin, see AUTHORS for more details.
-    :license: All Rights Reserved, see LICENSE for more details.
+    :license: GPLv3, see LICENSE for more details.
 """
 import io
 import logging
