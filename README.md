@@ -3,9 +3,6 @@
 _A HTTP Proxy that uses steganographic algorithms for establishing covert
 communication channels._
 
-The corresponding thesis can be found [here](https://git-iit.fh-joanneum.at/peterjustin/steganography_proxy_thesis).
-
-
 # Usage
 
 It is advised to execute these commands inside a

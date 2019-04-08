@@ -34,7 +34,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    description="A HTTP/S proxy that uses steganographic algorithms.",
+    description="A HTTP Proxy that uses steganographic algorithms.",
     entry_points={"console_scripts": ["stegoproxy=stegoproxy.cli:main"]},
     install_requires=requirements,
     license="BSD",
