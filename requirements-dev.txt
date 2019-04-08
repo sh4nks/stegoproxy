@@ -1,6 +1,6 @@
 Flask
 Click
 colorlog
--e git+https://git.someblocks.com/sh4nks/Stegano.git#egg=Stegano
+-e git+https://github.com/sh4nks/Stegano.git#egg=Stegano
 -e git+https://github.com/sh4nks/Steganography#egg=stego_lsb
 -e .

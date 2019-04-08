@@ -11,7 +11,6 @@
     :license: GPLv3, see LICENSE for more details.
 """
 import os
-from time import sleep
 
 from flask import (Flask, Response, render_template_string,
                    send_from_directory, stream_with_context)
